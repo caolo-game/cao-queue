@@ -1,0 +1,11 @@
+[package]
+name = "server"
+version = "0.1.0"
+authors = ["Daniel Kiss <littlesnorrboy@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependencies]
+cao-queue = { path = "../cao-queue", features = ["serde", "collections"] }
+tokio = { version = "0.2", features = ["full"] }
+warp = "0.2"
