@@ -9,3 +9,16 @@ edition = "2018"
 cao-queue = { path = "../cao-queue", features = ["serde", "collections"] }
 tokio = { version = "0.2", features = ["full"] }
 warp = "0.2"
+serde = { version = "1", features = ["derive"] }
+slog = { version = "*", features = [
+    "max_level_trace",
+    "release_max_level_info"
+] }
+slog-term = "*"
+slog-async = "*"
+slog-stdlog = "*"
+log = { version = "*", features = [
+    "max_level_trace",
+    "release_max_level_info"
+] }
+slog-scope = "*"

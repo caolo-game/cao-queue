@@ -3,24 +3,26 @@
 //! Single Producer Multi Consumer First In First Out Queue
 //!
 use super::QueueError;
-use crate::MessageId;
 
-use std::{cell::UnsafeCell, pin::Pin, sync::atomic::AtomicUsize};
+use std::{cell::UnsafeCell, marker::Unpin, pin::Pin, sync::atomic::AtomicUsize};
 use std::{mem::MaybeUninit, sync::atomic::Ordering};
 
-type FixMessageBuffer = Pin<Box<[MaybeUninit<MessageId>]>>;
+type FixMessageBuffer<T> = Pin<Box<[MaybeUninit<T>]>>;
 
-pub struct SpmcFifo {
+pub struct SpmcFifo<T> {
     size_mask: usize,
     head: AtomicUsize,
     tail: AtomicUsize,
-    buffer: UnsafeCell<FixMessageBuffer>,
+    buffer: UnsafeCell<FixMessageBuffer<T>>,
 }
 
-unsafe impl Sync for SpmcFifo {}
-unsafe impl Send for SpmcFifo {}
+unsafe impl<T> Sync for SpmcFifo<T> {}
+unsafe impl<T> Send for SpmcFifo<T> {}
 
-impl std::fmt::Debug for SpmcFifo {
+impl<T> std::fmt::Debug for SpmcFifo<T>
+where
+    T: std::fmt::Debug,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SpmcFifo")
             .field("head", &self.head.load(Ordering::Relaxed))
@@ -38,16 +40,16 @@ impl std::fmt::Debug for SpmcFifo {
     }
 }
 
-struct QIterator<'a> {
-    buffer: *const MaybeUninit<MessageId>,
+struct QIterator<'a, T> {
+    buffer: *const MaybeUninit<T>,
     size_mask: usize,
     head: usize,
     tail: usize,
     _m: std::marker::PhantomData<&'a i32>,
 }
 
-impl<'a> Iterator for QIterator<'a> {
-    type Item = &'a MessageId;
+impl<'a, T: 'a> Iterator for QIterator<'a, T> {
+    type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.head == self.tail {
@@ -60,15 +62,14 @@ impl<'a> Iterator for QIterator<'a> {
         Some(item)
     }
 }
-
-impl SpmcFifo {
+impl<T> SpmcFifo<T> {
     /// Iterates over the messages without consuming them!
     ///
     /// # Safety
     ///
     /// Iterating while also mutating the queue _may_ result in bad things happening.
     /// Use with care!
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a MessageId> + 'a {
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T> + 'a {
         QIterator {
             buffer: unsafe {
                 let buf = self.buffer.get();
@@ -81,7 +82,12 @@ impl SpmcFifo {
             _m: Default::default(),
         }
     }
+}
 
+impl<T> SpmcFifo<T>
+where
+    T: Unpin,
+{
     /// Size must be a power of two
     ///
     /// Note on size: the queue will actually only hold size -1 items at most
@@ -99,14 +105,23 @@ impl SpmcFifo {
         })
     }
 
-    pub fn push(&self, msg: MessageId) -> Result<(), QueueError> {
+    /// # Safety
+    ///
+    /// Use internally, make sure no race conditions apply pls <3
+    unsafe fn buffer_mut(&self) -> &mut [MaybeUninit<T>] {
+        let foo = self.buffer.get();
+        let bar: &mut Pin<Box<[MaybeUninit<T>]>> = &mut *foo;
+        &mut *bar
+    }
+
+    pub fn push(&self, msg: T) -> Result<(), QueueError> {
         let head = self.head.load(Ordering::Acquire);
         let new_ind = incr(head, self.size_mask);
         if new_ind == self.tail.load(Ordering::Acquire) {
             return Err(QueueError::Full);
         }
         unsafe {
-            (**self.buffer.get())[head] = MaybeUninit::new(msg);
+            self.buffer_mut()[head] = MaybeUninit::new(msg);
         }
         let res = self.head.compare_and_swap(head, new_ind, Ordering::Release);
         assert!(
@@ -116,7 +131,7 @@ impl SpmcFifo {
         Ok(())
     }
 
-    pub fn pop(&self) -> Option<MessageId> {
+    pub fn pop(&self) -> Option<T> {
         let tail = loop {
             let tail = self.tail.load(Ordering::Acquire);
             let head = self.head.load(Ordering::Acquire);
@@ -134,8 +149,11 @@ impl SpmcFifo {
             // else another thread stole this item
         };
 
-        let item = unsafe { (**self.buffer.get())[tail].assume_init() };
-        Some(item)
+        unsafe {
+            let item = std::mem::replace(&mut self.buffer_mut()[tail], MaybeUninit::uninit());
+            let item = item.assume_init();
+            Some(item)
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -152,6 +170,8 @@ fn incr(val: usize, mask: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use crate::MessageId;
+
     use super::*;
     use std::{sync::Arc, time::Duration};
 
@@ -159,7 +179,7 @@ mod tests {
     #[cfg_attr(miri, ignore)]
     fn basic_push_pop() {
         let mut msgs = Vec::with_capacity(128);
-        let queue = SpmcFifo::new(512).unwrap();
+        let queue: SpmcFifo<MessageId> = SpmcFifo::new(512).unwrap();
         let queue = Arc::new(queue);
 
         let worker = {

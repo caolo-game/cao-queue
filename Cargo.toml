@@ -1,2 +1,2 @@
 [workspace]
-members = ["server", "cao-queue"]
+members = ["server", "cao-queue", "client", "cli"]

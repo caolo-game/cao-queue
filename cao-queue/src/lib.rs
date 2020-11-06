@@ -7,10 +7,13 @@
 //!
 #[cfg(feature = "collections")]
 pub mod collections;
+#[cfg(feature = "collections")]
+pub mod message;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MessageId(pub u64);
+
 
 /// Role of a client
 #[derive(Debug, Clone, Copy)]

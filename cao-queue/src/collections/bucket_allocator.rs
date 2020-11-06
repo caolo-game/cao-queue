@@ -84,9 +84,9 @@ impl BucketAllocator {
     pub fn deallocate(&self, ptr: *const u8, size: usize) {
         let buffer = unsafe { &*self.buffer.get() };
         let len = buffer.len();
-        let b = buffer.as_ptr();
+        let buffer = buffer.as_ptr();
         unsafe {
-            if ptr < b || b.add(len) <= ptr {
+            if ptr < buffer || buffer.add(len) <= ptr {
                 // `ptr` was not allocated by this instance
                 let next = &mut *self.next.get();
                 return next.as_mut().expect("`ptr` was not allocated by this instance. Expected a `next` instance to be present").deallocate(ptr, size);
