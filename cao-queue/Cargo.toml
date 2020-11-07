@@ -10,6 +10,12 @@ default = ["collections", "serde"]
 collections = []
 
 [dependencies]
-thiserror="*"
-serde = { version="1", optional=true, features=["derive"] }
+thiserror = "*"
+serde = { version = "1", optional = true, features = ["derive"] }
 
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "cao_q_benches"
+harness = false

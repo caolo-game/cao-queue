@@ -36,55 +36,63 @@ impl BucketAllocator {
     ///
     /// 1 producer thread is allowed per allocator
     pub fn allocate_aligned(&self, size: usize, alignment: usize) -> *mut u8 {
+        Self::allocate_from(self, size, alignment)
+    }
+
+    fn allocate_from(mut allocator: &Self, size: usize, alignment: usize) -> *mut u8 {
         assert!(
             (alignment & (alignment - 1)) == 0,
             "alignment must be a power of two"
         );
-        let buffer = unsafe { &mut *self.buffer.get() };
-        let len = buffer.len();
-        let head = self.head.load(Ordering::Acquire);
-        let ptr: *mut u8 = unsafe { buffer.as_mut_ptr().add(head) };
-        let (diff, ptr) = align(ptr, alignment);
-        debug_assert!(head <= len);
-        let new_head = head + diff + size;
-        if new_head <= len {
-            // can allocate in this instance
-            let res = self
-                .head
-                .compare_and_swap(head, new_head, Ordering::Release);
-            assert_eq!(
-                res, head,
-                "Another thread allocated during this call. This is not allowed"
-            );
-            // decrement bytes out by the number of bytes skipped
-            debug_assert!(diff < alignment);
-            self.bytes_out.fetch_sub(diff, Ordering::Release);
-            return ptr as *mut _;
-        }
-
-        if size < len * 2 / 3 {
-            debug_assert!(head < len);
-            let remaining = len - head;
-            // some stupid heuristics:
-            // assume that future allocations will fail, so don't serve those bytes
-            let out = self.bytes_out.fetch_sub(remaining, Ordering::Release);
-
-            if out == remaining {
-                // all allocations have been deallocated
-                self.reset(len);
-                return self.allocate_aligned(size, alignment);
+        loop {
+            let buffer = unsafe { &mut *allocator.buffer.get() };
+            let len = buffer.len();
+            let head = allocator.head.load(Ordering::Acquire);
+            let ptr: *mut u8 = unsafe { buffer.as_mut_ptr().add(head) };
+            let (diff, ptr) = align(ptr, alignment);
+            debug_assert!(head <= len);
+            let new_head = head + diff + size;
+            if new_head <= len {
+                // can allocate in this instance
+                let res = allocator
+                    .head
+                    .compare_and_swap(head, new_head, Ordering::Release);
+                assert_eq!(
+                    res, head,
+                    "Another thread allocated during this call. This is not allowed"
+                );
+                // decrement bytes out by the number of bytes skipped
+                debug_assert!(diff < alignment);
+                allocator.bytes_out.fetch_sub(diff, Ordering::Release);
+                return ptr as *mut _;
             }
-        }
-        // else allocate using the next instance
-        //
-        unsafe {
-            match &*self.next.get() {
-                Some(ref next) => next.allocate_aligned(size, alignment),
-                None => {
-                    let next = Self::new(len.max(size + alignment));
-                    let res = next.allocate_aligned(size, alignment);
-                    std::ptr::write_unaligned(self.next.get(), Some(next));
-                    res
+
+            if size < len * 2 / 3 {
+                debug_assert!(head < len);
+                let remaining = len - head;
+                // some stupid heuristics:
+                // assume that future allocations will fail, so don't serve those bytes
+                let out = allocator.bytes_out.fetch_sub(remaining, Ordering::Release);
+
+                if out == remaining {
+                    // all allocations have been deallocated
+                    allocator.reset(len);
+                    continue;
+                }
+            }
+            // else allocate using the next instance
+            //
+            unsafe {
+                allocator = match &*allocator.next.get() {
+                    Some(ref next) => next,
+                    // next.allocate_aligned(size, alignment),
+                    None => {
+                        // at least as much memory as requested + padding to amortize allocations
+                        let next_ptr = allocator.next.get();
+                        let next = Self::new(len.max(size) * 3 / 2);
+                        std::ptr::write_unaligned(next_ptr, Some(next));
+                        (&*next_ptr).as_ref().unwrap()
+                    }
                 }
             }
         }
