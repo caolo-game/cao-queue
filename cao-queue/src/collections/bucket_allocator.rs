@@ -35,21 +35,33 @@ impl BucketAllocator {
     /// # Safety
     ///
     /// 1 producer thread is allowed per allocator
-    pub fn allocate(&self, size: usize) -> *mut u8 {
+    pub fn allocate_aligned(&self, size: usize, alignment: usize) -> *mut u8 {
+        assert!(
+            (alignment & (alignment - 1)) == 0,
+            "alignment must be a power of two"
+        );
         let buffer = unsafe { &mut *self.buffer.get() };
         let len = buffer.len();
         let head = self.head.load(Ordering::Acquire);
-        if head + size <= len {
+        let ptr: *mut u8 = unsafe { buffer.as_mut_ptr().add(head) };
+        let (diff, ptr) = align(ptr, alignment);
+        debug_assert!(head <= len);
+        let new_head = head + diff + size;
+        if new_head <= len {
             // can allocate in this instance
             let res = self
                 .head
-                .compare_and_swap(head, head + size, Ordering::Release);
+                .compare_and_swap(head, new_head, Ordering::Release);
             assert_eq!(
                 res, head,
                 "Another thread allocated during this call. This is not allowed"
             );
-            return unsafe { buffer.as_mut_ptr().add(res) };
+            // decrement bytes out by the number of bytes skipped
+            debug_assert!(diff < alignment);
+            self.bytes_out.fetch_sub(diff, Ordering::Release);
+            return ptr as *mut _;
         }
+
         if size < len * 2 / 3 {
             debug_assert!(head < len);
             let remaining = len - head;
@@ -60,17 +72,17 @@ impl BucketAllocator {
             if out == remaining {
                 // all allocations have been deallocated
                 self.reset(len);
-                return self.allocate(size);
+                return self.allocate_aligned(size, alignment);
             }
         }
         // else allocate using the next instance
         //
         unsafe {
             match &*self.next.get() {
-                Some(ref next) => next.allocate(size),
+                Some(ref next) => next.allocate_aligned(size, alignment),
                 None => {
-                    let next = Self::new(len.max(size));
-                    let res = next.allocate(size);
+                    let next = Self::new(len.max(size + alignment));
+                    let res = next.allocate_aligned(size, alignment);
                     std::ptr::write_unaligned(self.next.get(), Some(next));
                     res
                 }
@@ -80,7 +92,16 @@ impl BucketAllocator {
 
     /// # Safety
     ///
-    /// Multiple calls with the same `ptr` results in undefined behaviour
+    /// 1 producer thread is allowed per allocator
+    pub fn allocate(&self, size: usize) -> *mut u8 {
+        self.allocate_aligned(size, 1)
+    }
+
+    /// # Safety
+    ///
+    /// Multiple calls with the same `ptr` results in undefined behaviour.
+    /// Calling deallocate with a `ptr` not returned by this instance will result in undefined
+    /// behaviour!
     pub fn deallocate(&self, ptr: *const u8, size: usize) {
         let buffer = unsafe { &*self.buffer.get() };
         let len = buffer.len();
@@ -103,6 +124,25 @@ impl BucketAllocator {
         self.bytes_out.store(len, Ordering::Release);
         self.head.store(0, Ordering::Release);
     }
+}
+
+/// Return the aligned pointer and the diff from the initial one
+///
+/// This is a tad bit unsafe, however the author assumes that ptrs never going to be around
+/// usize::MAX, and alignment will be fairly small.
+#[inline]
+fn align<T>(ptr: *const T, alignment: usize) -> (usize, *const T) {
+    debug_assert_eq!(
+        alignment & (alignment - 1),
+        0,
+        "alignment must be a power of two!"
+    );
+    let pp = ptr as usize;
+    let modulo = pp & (alignment - 1);
+    // alignment - modulo if modulo is not 0
+    // else the ptr is already aligned
+    let diff = (alignment - modulo) * ((modulo != 0) as usize);
+    (diff, (pp + diff) as *const _)
 }
 
 #[cfg(test)]
@@ -131,6 +171,14 @@ mod tests {
 
         // assert that no new instance has been created
         unsafe { assert!((*allocator.next.get()).is_none()) }
+    }
+
+    #[test]
+    fn allocate_align() {
+        let allocator = BucketAllocator::new(512);
+        let ptr = allocator.allocate_aligned(128, 16);
+
+        assert_eq!(ptr.align_offset(16), 0);
     }
 
     #[test]
