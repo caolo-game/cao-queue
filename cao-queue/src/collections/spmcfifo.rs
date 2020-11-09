@@ -107,13 +107,17 @@ where
 
     /// # Safety
     ///
-    /// Use internally, make sure no race conditions apply pls <3
+    /// Highly unsafe;
+    /// Use internally, make sure invariants hold.
+    #[allow(clippy::mut_from_ref)]
     unsafe fn buffer_mut(&self) -> &mut [MaybeUninit<T>] {
-        let foo = self.buffer.get();
-        let bar: &mut Pin<Box<[MaybeUninit<T>]>> = &mut *foo;
-        &mut *bar
+        let buffer = self.buffer.get();
+        let mut_buffer: &mut Pin<Box<[MaybeUninit<T>]>> = &mut *buffer;
+        &mut *mut_buffer
     }
 
+    /// Push an item into the queue.
+    /// Only 1 producer thread is allowed at a time!
     pub fn push(&self, msg: T) -> Result<(), QueueError> {
         let head = self.head.load(Ordering::Acquire);
         let new_ind = incr(head, self.size_mask);
@@ -131,6 +135,7 @@ where
         Ok(())
     }
 
+    /// Pop the last item from queue, if any
     pub fn pop(&self) -> Option<T> {
         let tail = loop {
             let tail = self.tail.load(Ordering::Acquire);
@@ -146,7 +151,7 @@ where
             if res == tail {
                 break tail;
             }
-            // else another thread stole this item
+            // else another thread stole this item, try again
         };
 
         unsafe {
@@ -154,6 +159,11 @@ where
             let item = item.assume_init();
             Some(item)
         }
+    }
+
+    /// To ensure thread safety this method is really slow. Use sparingly
+    pub fn clear(&self) {
+        while self.pop().is_some() {}
     }
 
     pub fn is_empty(&self) -> bool {

@@ -6,9 +6,12 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-cao-queue = { path = "../cao-queue", no-default-features = true, features = [
+cao-queue = { path = "../cao-queue", default-features = false, features = [
     "serde"
 ] }
-servo-websocket = "0.21"
-reqwest = "*"
 url = "2"
+thiserror = "*"
+tokio-tungstenite = "0.12"
+tokio = { version = "0.3", features = ["net"] }
+serde_json = "*"
+futures-util = "*"

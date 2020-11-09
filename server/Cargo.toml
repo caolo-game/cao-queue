@@ -8,17 +8,14 @@ edition = "2018"
 [dependencies]
 cao-queue = { path = "../cao-queue", features = ["serde", "collections"] }
 tokio = { version = "0.2", features = ["full"] }
-warp = "0.2"
 serde = { version = "1", features = ["derive"] }
-slog = { version = "*", features = [
+slog = { version = "2", features = [
     "max_level_trace",
     "release_max_level_info"
 ] }
-slog-term = "*"
-slog-async = "*"
-slog-stdlog = "*"
-log = { version = "*", features = [
-    "max_level_trace",
-    "release_max_level_info"
-] }
-slog-scope = "*"
+slog-term = "2"
+slog-async = "2"
+anyhow = "1"
+serde_json = "1"
+futures-util = "0.3"
+warp = "0.2"

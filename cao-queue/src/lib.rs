@@ -5,21 +5,21 @@
 //! | collections | Enables message collections module. Most useful for servers |
 //! | serde | Enables serde integration |
 //!
-#[cfg(feature = "collections")]
 pub mod collections;
-#[cfg(feature = "collections")]
 pub mod message;
+
+pub mod commands;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MessageId(pub u64);
 
-
 /// Role of a client
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Role {
+    NoRole = 0,
     Producer = 1,
     Consumer = 1 << 1,
     /// Indicates a client that's both producer and consumer
