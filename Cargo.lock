@@ -129,19 +129,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e0dcbc35f504eb6fc275a6d20e4ebcda18cf50d40ba6fabff8c711fa16cb3b16"
 
 [[package]]
-name = "cao-q-client"
-version = "0.1.0"
-dependencies = [
- "cao-queue",
- "futures-util",
- "serde_json",
- "thiserror",
- "tokio 0.3.3",
- "tokio-tungstenite 0.12.0",
- "url",
-]
-
-[[package]]
 name = "cao-queue"
 version = "0.1.0"
 dependencies = [
@@ -153,8 +140,21 @@ dependencies = [
 name = "caoq"
 version = "0.1.0"
 dependencies = [
- "cao-q-client",
+ "caoq-client",
  "tokio 0.3.3",
+]
+
+[[package]]
+name = "caoq-client"
+version = "0.1.0"
+dependencies = [
+ "cao-queue",
+ "futures-util",
+ "serde_json",
+ "thiserror",
+ "tokio 0.3.3",
+ "tokio-tungstenite 0.12.0",
+ "url",
 ]
 
 [[package]]

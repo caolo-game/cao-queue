@@ -1,5 +1,5 @@
 [package]
-name = "cao-q-client"
+name = "caoq-client"
 version = "0.1.0"
 authors = ["Daniel Kiss <littlesnorrboy@gmail.com>"]
 edition = "2018"

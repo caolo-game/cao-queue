@@ -1,4 +1,4 @@
-use cao_q_client::{connect, Role};
+use caoq_client::{connect, Role};
 
 #[tokio::main]
 async fn main() {
@@ -14,9 +14,9 @@ async fn main() {
                 let res = client.listen_for_message().await.unwrap();
 
                 match res.unwrap() {
-                    cao_q_client::CommandResponse::Success => {}
-                    cao_q_client::CommandResponse::MessageId(_) => {}
-                    cao_q_client::CommandResponse::Message(msg) => {
+                    caoq_client::CommandResponse::Success => {}
+                    caoq_client::CommandResponse::MessageId(_) => {}
+                    caoq_client::CommandResponse::Message(msg) => {
                         println!(
                             "listener ({}) GOT A MSG BOIIIIIIS {:?} payload: {:?}",
                             listener_id,
