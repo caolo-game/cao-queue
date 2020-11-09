@@ -2,10 +2,7 @@ use cao_q_client::{connect, Role};
 
 #[tokio::main]
 async fn main() {
-    let mut listener_id = 0u32;
-
-    for _ in 0..3 {
-        listener_id += 1;
+    for listener_id in 0..3u32 {
         tokio::task::spawn(async move {
             let mut client = connect("ws://localhost:6942/queue-client").await.unwrap();
             client

@@ -26,6 +26,20 @@ impl Client {
         }
     }
 
+    /// clean up after this client
+    pub fn cleanup(&mut self) {
+        if let Some(q) = self.queue.take() {
+            if self.role.is_producer() {
+                q.has_producer.store(false, Ordering::Release);
+            }
+            let clients = q.clients.fetch_sub(1, Ordering::AcqRel) - 1;
+            if clients == 0 && q.queue.is_empty() {
+                // this queue can be garbage collected
+                self.exchange.write().unwrap().remove(&q.name);
+            }
+        }
+    }
+
     pub async fn handle_command(&mut self, log: Logger, cmd: Command) -> CommandResult {
         self.log = log.new(slog::o!("role" => format!("{:?}", self.role)));
         match cmd {
@@ -33,20 +47,27 @@ impl Client {
                 debug!(self.log, "Switching queue");
                 let queue = {
                     let mut exchange = self.exchange.write().unwrap();
-                    match exchange.entry(name.clone()) {
+                    let q = match exchange.entry(name.clone()) {
                         e @ std::collections::hash_map::Entry::Occupied(_) => {
                             Arc::clone(e.or_insert_with(|| unreachable!()))
                         }
                         e @ std::collections::hash_map::Entry::Vacant(_) if create => {
-                            debug!(self.log, "Creating queue");
                             // TODO: get size from msg
-                            Arc::clone(e.or_insert_with(|| Arc::new(SpmcQueue::new(32000, name))))
+                            Arc::clone(e.or_insert_with(|| {
+                                debug!(self.log, "Creating queue");
+                                Arc::new(SpmcQueue::new(32000, name))
+                            }))
                         }
                         _ => {
                             return Err(CommandError::QueueNotFound);
                         }
-                    }
+                    };
+                    // add 1 to the clients before releasing the lock, so another thread doesn't
+                    // "garbage collect" this instance while we're setting it up
+                    q.clients.fetch_add(1, Ordering::Release);
+                    q
                 };
+                self.cleanup();
                 if role.is_producer() {
                     let had_propucer =
                         queue
@@ -87,7 +108,7 @@ impl Client {
                         let id = unsafe {
                             let id = q.next_id.get();
                             let res = *id;
-                            (&mut *id).0 += 1;
+                            (*id).0 += 1;
                             res
                         };
                         let msg = OwnedMessage { id, payload };

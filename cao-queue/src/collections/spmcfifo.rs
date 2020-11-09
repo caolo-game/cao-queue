@@ -69,7 +69,7 @@ impl<T> SpmcFifo<T> {
     ///
     /// Iterating while also mutating the queue _may_ result in bad things happening.
     /// Use with care!
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = &'_ T> {
         QIterator {
             buffer: unsafe {
                 let buf = self.buffer.get();

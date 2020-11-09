@@ -10,12 +10,5 @@ default = ["collections", "serde"]
 collections = []
 
 [dependencies]
-thiserror = "*"
+thiserror = "1"
 serde = { version = "1", optional = true, features = ["derive"] }
-
-[dev-dependencies]
-criterion = "0.3"
-
-[[bench]]
-name = "cao_q_benches"
-harness = false

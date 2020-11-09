@@ -5,7 +5,7 @@ use futures_util::{SinkExt, StreamExt};
 use slog_async::OverflowStrategy;
 use std::{
     cell::UnsafeCell, collections::HashMap, sync::atomic::AtomicBool, sync::atomic::AtomicU64,
-    sync::atomic::Ordering, sync::Arc, sync::RwLock,
+    sync::Arc, sync::RwLock,
 };
 use warp::{ws::Message, Filter};
 
@@ -105,20 +105,7 @@ async fn queue_client(log: Logger, stream: warp::ws::WebSocket, exchange: Exchan
     if let Err(err) = _queue_client(log.clone(), stream, &mut client).await {
         warn!(log, "Error running client {:?}", err);
     }
-    // cleanup
-    match client.queue {
-        Some(q) => {
-            if client.role.is_producer() {
-                q.has_producer.store(false, Ordering::Release);
-            }
-            let clients = q.clients.fetch_sub(1, Ordering::AcqRel) - 1;
-            if clients == 0 && q.queue.is_empty() {
-                // this queue can be garbage collected
-                exchange.write().unwrap().remove(&q.name);
-            }
-        }
-        _ => {}
-    }
+    client.cleanup();
 }
 
 #[tokio::main]
