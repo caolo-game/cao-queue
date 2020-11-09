@@ -53,11 +53,6 @@ jobs:
           RUSTFLAGS: ${{ matrix.flags }}
           RUSTDOCFLAGS: "-Cpanic=abort"
 
-      - name: Test benches
-        run: cargo +${{ matrix.rust }} test --benches
-        env:
-          RUST_BACKTRACE: 1
-
       - name: Install grcov
         if: ${{ matrix.rust == 'nightly' }}
         run: curl -L https://github.com/mozilla/grcov/releases/latest/download/grcov-linux-x86_64.tar.bz2 | tar jxf -
