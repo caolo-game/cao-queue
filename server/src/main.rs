@@ -1,6 +1,7 @@
 mod client;
 
 use anyhow::Context;
+use client::spmc::SpmcClient;
 use futures_util::{SinkExt, StreamExt};
 use slog_async::OverflowStrategy;
 use std::{
@@ -15,7 +16,7 @@ use cao_queue::{
 use slog::{debug, info, warn, Drain, Logger};
 
 /// Collection of queues by name
-type Exchange = Arc<RwLock<HashMap<QueueName, Arc<SpmcQueue>>>>;
+type SpmcExchange = Arc<RwLock<HashMap<QueueName, Arc<SpmcQueue>>>>;
 type QueueName = String; // TODO: short string?
 
 /// Single producer - multi consumer queue
@@ -57,14 +58,14 @@ fn round_up_to_pow_2(mut v: u64) -> u64 {
     v + 1
 }
 
-async fn queue_client(log: Logger, stream: warp::ws::WebSocket, exchange: Exchange) {
+async fn queue_client(log: Logger, stream: warp::ws::WebSocket, exchange: SpmcExchange) {
     info!(log, "Hello client");
-    let mut client = crate::client::Client::new(log.clone(), Arc::clone(&exchange));
+    let mut client = SpmcClient::new(log.clone(), Arc::clone(&exchange));
 
     async fn _queue_client(
         log_root: Logger,
         stream: warp::ws::WebSocket,
-        client: &mut crate::client::Client,
+        client: &mut SpmcClient,
     ) -> anyhow::Result<()> {
         let (mut tx, mut rx) = stream.split();
 
@@ -128,7 +129,7 @@ async fn main() {
     let log = Logger::root(drain, slog::o!());
 
     // the map might resize when inserting new queues, so put the queues behind pointers
-    let exchange: Exchange = Arc::new(RwLock::new(HashMap::new()));
+    let exchange: SpmcExchange = Arc::new(RwLock::new(HashMap::new()));
 
     let exchange = {
         let filter = warp::any().map(move || Arc::clone(&exchange));
@@ -142,7 +143,7 @@ async fn main() {
     };
 
     let queue_client = warp::get()
-        .and(warp::path!("queue-client"))
+        .and(warp::path!("spmc-queue-client"))
         .and(warp::ws())
         .and(exchange())
         .and(log_filter())

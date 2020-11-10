@@ -11,4 +11,5 @@ Distributed message queue. Built for the needs of the Caolo project.
 - [ ] Docker setup
 - [ ] Benchmarks comparing to RabbitMQ and Redis
 - [ ] Documentation
+- [ ] Multi-producer queues
 
