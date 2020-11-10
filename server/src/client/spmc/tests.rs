@@ -21,6 +21,92 @@ fn setup_client() -> SpmcClient {
     SpmcClient::new(test_logger(), exchange)
 }
 
+#[tokio::test]
+#[cfg_attr(miri, ignore)]
+async fn change_q_cleans_up() {
+    setup_testing();
+
+    let mut client = setup_client();
+    client
+        .handle_command(
+            client.log.clone(),
+            Command::ActiveQueue {
+                role: Role::Producer,
+                name: "boi".to_owned(),
+                create: true,
+            },
+        )
+        .await
+        .unwrap();
+
+    let q = Arc::clone(client.queue.as_ref().unwrap());
+    assert!(q.has_producer.load(Ordering::Relaxed));
+
+    client
+        .handle_command(
+            client.log.clone(),
+            Command::ActiveQueue {
+                role: Role::Producer,
+                name: "boi2".to_owned(),
+                create: true,
+            },
+        )
+        .await
+        .unwrap();
+
+    assert!(!q.has_producer.load(Ordering::Relaxed));
+    let q = Arc::clone(client.queue.as_ref().unwrap());
+    assert_eq!(q.name, "boi2");
+    assert!(q.has_producer.load(Ordering::Relaxed));
+}
+
+#[tokio::test]
+#[cfg_attr(miri, ignore)]
+async fn change_role_cleans_up() {
+    setup_testing();
+
+    let mut client = setup_client();
+    client
+        .handle_command(
+            client.log.clone(),
+            Command::ActiveQueue {
+                role: Role::Producer,
+                name: "boi".to_owned(),
+                create: true,
+            },
+        )
+        .await
+        .unwrap();
+
+    let q = Arc::clone(client.queue.as_ref().unwrap());
+    assert!(q.has_producer.load(Ordering::Relaxed));
+
+    client
+        .handle_command(client.log.clone(), Command::ChangeRole(Role::Consumer))
+        .await
+        .unwrap();
+
+    assert!(!q.has_producer.load(Ordering::Relaxed));
+}
+
+
+
+#[tokio::test]
+#[cfg_attr(miri, ignore)]
+async fn clear_fails_if_not_producer() {
+    setup_testing();
+
+    let mut client = setup_client();
+    client.role = Role::Consumer;
+    let cmd = Command::ClearQueue;
+
+    let err = client
+        .handle_command(client.log.clone(), cmd)
+        .await
+        .expect_err("Expected clear to fail");
+    assert!(matches!(err, CommandError::NotProducer));
+}
+
 mod active_queue_command {
     use super::*;
 
@@ -34,7 +120,7 @@ mod active_queue_command {
         let cmd = Command::ActiveQueue {
             role: Role::NoRole,
             name: "asd".to_owned(),
-            create: false,
+            create: false, // <-- important
         };
 
         // note: in practice don't pass the same logger to the function as it override the internal one...
@@ -110,7 +196,7 @@ mod active_queue_command {
                 .get("asd")
                 .expect("expected to find the queue")
                 .clients
-                .load(Ordering::Acquire)
+                .load(Ordering::Relaxed)
                 == 1
         );
     }
