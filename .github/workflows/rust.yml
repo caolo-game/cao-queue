@@ -61,6 +61,7 @@ jobs:
         if: ${{ matrix.rust == 'nightly' }}
         run: |
           mkdir ./coverage
+          echo $CARGO_HOME
           ./grcov ./target/debug -s . --token ${{ secrets.COVERALLS_TOKEN }} --ignore="$CARGO_HOME/*" > ./coverage/lcov.info
 
       - name: Coveralls

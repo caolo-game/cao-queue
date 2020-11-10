@@ -37,7 +37,10 @@ pub enum Command {
     /// ## On success
     ///
     /// - Message
-    ListenForMsg,
+    ListenForMsg {
+        /// maximum time to wait for a message before returning (in milliseconds)
+        timeout_ms: Option<u64>,
+    },
     /// Clears the current queue
     ///
     /// ## On success
@@ -63,7 +66,10 @@ impl Debug for Command {
             Command::PushMsg(_) => f.debug_struct("Command::PushMsg").finish(),
             Command::PopMsg => f.debug_struct("Command::PopMsg").finish(),
             Command::ClearQueue => f.debug_struct("Command::ClearQueue").finish(),
-            Command::ListenForMsg => f.debug_struct("Command::ListenForMsg").finish(),
+            Command::ListenForMsg { timeout_ms } => f
+                .debug_struct("Command::ListenForMsg")
+                .field("timeout_ms", timeout_ms)
+                .finish(),
         }
     }
 }
@@ -98,4 +104,6 @@ pub enum CommandError {
     LostProducer,
     #[error("Error in the underlying queue {0}")]
     QueueError(QueueError),
+    #[error("Command timed out")]
+    Timeout,
 }

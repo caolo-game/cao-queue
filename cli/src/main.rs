@@ -4,14 +4,16 @@ use caoq_client::{connect, Role};
 async fn main() {
     for listener_id in 0..3u32 {
         tokio::task::spawn(async move {
-            let mut client = connect("ws://localhost:6942/queue-client").await.unwrap();
+            let mut client = connect("ws://localhost:6942/spmc-queue-client")
+                .await
+                .unwrap();
             client
                 .active_q(Role::Consumer, "myqueue", true)
                 .await
                 .unwrap()
                 .unwrap();
             loop {
-                let res = client.listen_for_message().await.unwrap();
+                let res = client.listen_for_message(None).await.unwrap();
 
                 match res.unwrap() {
                     caoq_client::CommandResponse::Success => {}
@@ -29,7 +31,9 @@ async fn main() {
         });
     }
 
-    let mut client = connect("ws://localhost:6942/queue-client").await.unwrap();
+    let mut client = connect("ws://localhost:6942/spmc-queue-client")
+        .await
+        .unwrap();
     client
         .active_q(Role::Producer, "myqueue", true)
         .await

@@ -72,8 +72,11 @@ impl Client {
         self.send_cmd(cmd).await
     }
 
-    pub async fn listen_for_message(&mut self) -> Result<CommandResult, ClientError> {
-        let cmd = Command::ListenForMsg;
+    pub async fn listen_for_message(
+        &mut self,
+        timeout_ms: Option<u64>,
+    ) -> Result<CommandResult, ClientError> {
+        let cmd = Command::ListenForMsg { timeout_ms };
         self.send_cmd(cmd).await
     }
 }
