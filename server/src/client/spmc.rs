@@ -3,7 +3,9 @@
 #[cfg(test)]
 mod tests;
 
-use std::{collections::hash_map, sync::Arc, sync::atomic::Ordering, time::Duration, time::Instant};
+use std::{
+    collections::hash_map, sync::atomic::Ordering, sync::Arc, time::Duration, time::Instant,
+};
 
 use cao_queue::{
     commands::Command, commands::CommandError, commands::CommandResponse, commands::CommandResult,
@@ -133,12 +135,10 @@ impl SpmcClient {
                 if !self.role.is_consumer() {
                     return Err(CommandError::NotConsumer);
                 }
-                match self.queue.as_ref() {
-                    Some(q) => match q.queue.pop() {
-                        Some(msg) => Ok(CommandResponse::Message(msg)),
-                        None => Ok(CommandResponse::Success),
-                    },
-                    None => Err(CommandError::QueueNotFound),
+                let q = self.queue.as_ref().ok_or(CommandError::QueueNotFound)?;
+                match q.queue.pop() {
+                    Some(msg) => Ok(CommandResponse::Message(msg)),
+                    None => Ok(CommandResponse::Success),
                 }
             }
             Command::ClearQueue => {
