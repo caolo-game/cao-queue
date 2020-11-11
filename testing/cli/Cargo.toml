@@ -6,7 +6,7 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-caoq-client = { path = "../client" }
+caoq-client = { path = "../../client" }
 
 [dependencies.tokio]
 version = "0.3"

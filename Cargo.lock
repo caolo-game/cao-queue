@@ -146,6 +146,24 @@ dependencies = [
 name = "caoq"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "cao-queue",
+ "env_logger",
+ "futures-util",
+ "serde",
+ "serde_json",
+ "slog",
+ "slog-async",
+ "slog-stdlog",
+ "slog-term",
+ "tokio 0.2.22",
+ "warp",
+]
+
+[[package]]
+name = "caoq-cli"
+version = "0.1.0"
+dependencies = [
  "caoq-client",
  "tokio 0.3.3",
 ]
@@ -1254,24 +1272,6 @@ dependencies = [
  "itoa",
  "serde",
  "url",
-]
-
-[[package]]
-name = "server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cao-queue",
- "env_logger",
- "futures-util",
- "serde",
- "serde_json",
- "slog",
- "slog-async",
- "slog-stdlog",
- "slog-term",
- "tokio 0.2.22",
- "warp",
 ]
 
 [[package]]
