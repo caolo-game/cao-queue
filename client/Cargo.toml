@@ -13,5 +13,5 @@ url = "2"
 thiserror = "*"
 tokio-tungstenite = "0.12"
 tokio = { version = "0.3", features = ["net"] }
-serde_json = "*"
+bincode = "1"
 futures-util = "*"

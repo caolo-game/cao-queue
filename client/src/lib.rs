@@ -14,18 +14,16 @@ pub struct Client {
 
 impl Client {
     pub async fn send_cmd(&mut self, cmd: Command) -> Result<CommandResult, ClientError> {
-        let payload = serde_json::to_vec(&cmd).unwrap();
-
+        let payload = bincode::serialize(&cmd).unwrap();
         let msg = Message::binary(payload);
 
         self.socket.send(msg).await.unwrap();
-
         let resp: CommandResult = loop {
             let msg = self.socket.next().await;
             if let Some(msg) = msg {
                 match msg? {
                     msg @ Message::Text(_) | msg @ Message::Binary(_) => {
-                        break serde_json::from_slice(msg.into_data().as_slice()).unwrap()
+                        break bincode::deserialize(msg.into_data().as_slice()).unwrap()
                     }
                     Message::Ping(_) => {
                         self.socket.send(Message::Pong(vec![])).await?;

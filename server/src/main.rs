@@ -5,15 +5,15 @@ use client::spmc::SpmcClient;
 use futures_util::{SinkExt, StreamExt};
 use slog_async::OverflowStrategy;
 use std::{
-    cell::UnsafeCell, collections::HashMap, sync::atomic::AtomicBool, sync::atomic::AtomicU64,
-    sync::Arc, sync::RwLock,
+    cell::UnsafeCell, collections::HashMap, env, net::IpAddr, sync::atomic::AtomicBool,
+    sync::atomic::AtomicU64, sync::Arc, sync::RwLock,
 };
 use warp::{ws::Message, Filter};
 
 use cao_queue::{
     collections::spmcfifo::SpmcFifo, commands::Command, message::OwnedMessage, MessageId,
 };
-use slog::{debug, info, warn, Drain, Logger};
+use slog::{debug, error, info, warn, Drain, Logger};
 
 /// Collection of queues by name
 type SpmcExchange = Arc<RwLock<HashMap<QueueName, Arc<SpmcQueue>>>>;
@@ -80,7 +80,7 @@ async fn queue_client(log: Logger, stream: warp::ws::WebSocket, exchange: SpmcEx
             };
             debug!(log, "Handling incoming message");
             if msg.is_binary() || msg.is_text() {
-                let cmd: Command = match serde_json::from_slice(msg.as_bytes()) {
+                let cmd: Command = match bincode::deserialize(msg.as_bytes()) {
                     Ok(m) => m,
                     Err(err) => {
                         warn!(log, "Failed to deserialize message {:?}", err);
@@ -95,7 +95,7 @@ async fn queue_client(log: Logger, stream: warp::ws::WebSocket, exchange: SpmcEx
                         debug!(log, "Failed to handle message {:?}", err);
                         err
                     });
-                let msg = Message::binary(serde_json::to_vec(&res).unwrap());
+                let msg = Message::binary(bincode::serialize(&res).unwrap());
                 tx.send(msg)
                     .await
                     .with_context(|| "Failed to send response")?;
@@ -107,6 +107,7 @@ async fn queue_client(log: Logger, stream: warp::ws::WebSocket, exchange: SpmcEx
         warn!(log, "Error running client {:?}", err);
     }
     client.cleanup();
+    info!(log, "Bye client");
 }
 
 #[tokio::main]
@@ -151,7 +152,30 @@ async fn main() {
             ws.on_upgrade(move |socket| queue_client(log, socket, exchange))
         });
 
-    let api = queue_client;
+    let health = warp::get().and(warp::path("health")).map(|| warp::reply());
 
-    warp::serve(api).run(([127, 0, 0, 1], 6942)).await;
+    let api = queue_client.or(health);
+
+    let host: IpAddr = env::var("HOST")
+        .ok()
+        .and_then(|host| {
+            host.parse()
+                .map_err(|e| {
+                    error!(log, "Failed to parse host {:?}", e);
+                })
+                .ok()
+        })
+        .unwrap_or_else(|| IpAddr::from([127, 0, 0, 1]));
+
+    let port = env::var("PORT")
+        .map_err(anyhow::Error::new)
+        .and_then(|port| port.parse().map_err(anyhow::Error::new))
+        .unwrap_or_else(|err| {
+            warn!(log, "Failed to parse port number: {}", err);
+            6942
+        });
+
+    info!(log, "Starting service on {:?}:{:?}", host, port);
+
+    warp::serve(api).run((host, port)).await;
 }

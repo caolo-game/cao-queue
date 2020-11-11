@@ -1,50 +1,41 @@
-use caoq_client::{connect, Role};
+use clap::{App, Arg};
+
+#[cfg(feature = "caoq-client")]
+mod caoq_test;
 
 #[tokio::main]
 async fn main() {
-    for listener_id in 0..3u32 {
-        tokio::task::spawn(async move {
-            let mut client = connect("ws://localhost:6942/spmc-queue-client")
-                .await
-                .unwrap();
-            client
-                .active_q(Role::Consumer, "myqueue", true)
-                .await
-                .unwrap()
-                .unwrap();
-            loop {
-                let res = client.listen_for_message(None).await.unwrap();
+    let matches = App::new("allocation benchmark sample")
+        .arg(
+            Arg::with_name("samples")
+                .short("s")
+                .long("samples")
+                .value_name("SAMPLES")
+                .help("Number of iterations to run")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("messages")
+                .short("m")
+                .long("messages")
+                .value_name("MESSAGES")
+                .help("Number of messages to send")
+                .takes_value(true),
+        )
+        .get_matches();
 
-                match res.unwrap() {
-                    caoq_client::CommandResponse::Success => {}
-                    caoq_client::CommandResponse::MessageId(_) => {}
-                    caoq_client::CommandResponse::Message(msg) => {
-                        println!(
-                            "listener ({}) GOT A MSG BOIIIIIIS {:?} payload: {:?}",
-                            listener_id,
-                            msg.id,
-                            String::from_utf8(msg.payload)
-                        );
-                    }
-                };
-            }
-        });
+    let samples: usize = matches
+        .value_of("samples")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(1);
+
+    let messages: usize = matches
+        .value_of("messages")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(10_000);
+
+    for _ in 0..samples {
+        #[cfg(feature = "caoq-client")]
+        crate::caoq_test::run("ws://localhost:6942/spmc-queue-client", messages, 2).await;
     }
-
-    let mut client = connect("ws://localhost:6942/spmc-queue-client")
-        .await
-        .unwrap();
-    client
-        .active_q(Role::Producer, "myqueue", true)
-        .await
-        .unwrap()
-        .unwrap();
-
-    for _ in 0..100u32 {
-        let res = client.push_msg(b"hello bois".to_vec()).await.unwrap();
-        println!("push: {:?}", res);
-        res.unwrap();
-    }
-
-    client.close().await;
 }

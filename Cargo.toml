@@ -1,2 +1,5 @@
 [workspace]
 members = ["server", "cao-queue", "client", "testing/cli"]
+
+[profile.release]
+debug=true

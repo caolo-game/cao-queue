@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cache
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cache
+  serviceName: cache
+  template:
+    metadata:
+      labels:
+        app: cache
+    spec:
+      containers:
+        - name: cache
+          image: eqalpha/keydb
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cache
+spec:
+  type: LoadBalancer
+  ports:
+    - name: cache
+      port: 6379
+  selector:
+    app: cache

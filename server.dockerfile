@@ -15,6 +15,6 @@ FROM alpine:latest
 
 WORKDIR /caoq
 
-COPY --from=build caoq/server/target/release/ ./
+COPY --from=build /caoq/server/target/release/caoq ./
 
-ENTRYPOINT ['/caoq/caoq']
+ENTRYPOINT ["/caoq/caoq"]
