@@ -1,7 +1,7 @@
 #[cfg(feature = "collections")]
 mod impls {
     use super::*;
-    pub mod atomic_option;
+    pub mod concurrent_message_map;
     pub mod spmcfifo;
 }
 #[cfg(feature = "collections")]

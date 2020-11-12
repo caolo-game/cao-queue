@@ -12,3 +12,13 @@ collections = []
 [dependencies]
 thiserror = "1"
 serde = { version = "1", optional = true, features = ["derive"] }
+parking_lot = "0.11"
+
+[dev-dependencies]
+criterion = "*"
+rayon = "*"
+rand = "*"
+
+[[bench]]
+name = "core-benches"
+harness=false
