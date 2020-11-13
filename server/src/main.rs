@@ -152,7 +152,7 @@ async fn main() {
             ws.on_upgrade(move |socket| queue_client(log, socket, exchange))
         });
 
-    let health = warp::get().and(warp::path("health")).map(|| warp::reply());
+    let health = warp::get().and(warp::path("health")).map(warp::reply);
 
     let api = queue_client.or(health);
 

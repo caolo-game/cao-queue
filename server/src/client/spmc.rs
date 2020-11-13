@@ -163,7 +163,7 @@ impl SpmcClient {
                 let q = self.queue.as_ref().ok_or(CommandError::QueueNotFound)?;
                 let mut sleep_duration = Duration::from_millis(16); // TODO config
                 let mut total = Duration::from_millis(0);
-                let timeout = timeout_ms.map(|toms| Duration::from_millis(toms));
+                let timeout = timeout_ms.map(Duration::from_millis);
                 'retry: loop {
                     if let Some(msg) = q.queue.pop() {
                         return Ok(CommandResponse::Message(msg));
