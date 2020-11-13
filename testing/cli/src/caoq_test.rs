@@ -36,10 +36,10 @@ async fn consumer(url: &'_ str, num_messages: usize, num_threads: usize) {
         match res.unwrap() {
             caoq_client::CommandResponse::Message(msg) => {
                 if msg.id.0 as usize > limit {
-                    break;
+                    has_msg_left = false;
                 }
             }
-            _ => break,
+            _ => has_msg_left = false,
         };
     }
     client.close().await
