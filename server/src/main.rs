@@ -58,7 +58,7 @@ fn round_up_to_pow_2(mut v: u64) -> u64 {
     v + 1
 }
 
-async fn queue_client(log: Logger, stream: warp::ws::WebSocket, exchange: SpmcExchange) {
+async fn spmc_queue(log: Logger, stream: warp::ws::WebSocket, exchange: SpmcExchange) {
     info!(log, "Hello client");
     let mut client = SpmcClient::new(log.clone(), Arc::clone(&exchange));
 
@@ -143,18 +143,18 @@ async fn main() {
         move || filter.clone()
     };
 
-    let queue_client = warp::get()
+    let spmc_queue = warp::get()
         .and(warp::path!("spmc-queue-client"))
         .and(warp::ws())
         .and(exchange())
         .and(log_filter())
         .map(|ws: warp::ws::Ws, exchange, log| {
-            ws.on_upgrade(move |socket| queue_client(log, socket, exchange))
+            ws.on_upgrade(move |socket| spmc_queue(log, socket, exchange))
         });
 
     let health = warp::get().and(warp::path("health")).map(warp::reply);
 
-    let api = queue_client.or(health);
+    let api = spmc_queue.or(health);
 
     let host: IpAddr = env::var("HOST")
         .ok()

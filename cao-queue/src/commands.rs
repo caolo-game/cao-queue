@@ -12,8 +12,8 @@ pub enum Command {
     ActiveQueue {
         role: Role,
         name: String,
-        /// create the queue by name if not exists
-        create: bool,
+        /// create the queue using the provided options if not exists
+        create: Option<QueueOptions>,
     },
     /// Switches the current client's role, but does not change active queue
     ///
@@ -47,6 +47,12 @@ pub enum Command {
     ///
     /// - Success
     ClearQueue,
+}
+
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct QueueOptions {
+    pub capacity: u32,
 }
 
 impl Debug for Command {

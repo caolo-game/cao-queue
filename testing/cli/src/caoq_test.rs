@@ -1,11 +1,15 @@
 use std::time::Instant;
 
-use caoq_client::{connect, Command, Role};
+use caoq_client::{connect, Command, QueueOptions, Role};
 
 async fn consumer(url: &'_ str, num_messages: usize, num_threads: usize) {
     let mut client = connect(url).await.unwrap();
     client
-        .active_q(Role::Consumer, "myqueue", false)
+        .send_cmd(Command::ActiveQueue {
+            role: Role::Consumer,
+            name: "myqueue".into(),
+            create: None,
+        })
         .await
         .unwrap()
         .unwrap();
@@ -15,7 +19,10 @@ async fn consumer(url: &'_ str, num_messages: usize, num_threads: usize) {
     let mut has_msg_left = true;
 
     while has_producer {
-        let res = client.listen_for_message(None).await.unwrap();
+        let res = client
+            .send_cmd(Command::ListenForMsg { timeout_ms: None })
+            .await
+            .unwrap();
 
         match res {
             Ok(caoq_client::CommandResponse::Success) => {}
@@ -32,7 +39,7 @@ async fn consumer(url: &'_ str, num_messages: usize, num_threads: usize) {
     }
     // pop the remaining messages if any
     while has_msg_left {
-        let res = client.pop_msg().await.unwrap();
+        let res = client.send_cmd(Command::PopMsg).await.unwrap();
         match res.unwrap() {
             caoq_client::CommandResponse::Message(msg) => {
                 if msg.id.0 as usize > limit {
@@ -51,7 +58,11 @@ pub async fn run(url: &'static str, num_messages: usize, num_threads: usize) {
     // make sure we have a producer before we start listening
     let mut client = connect(url).await.unwrap();
     client
-        .active_q(Role::Producer, "myqueue", true)
+        .send_cmd(Command::ActiveQueue {
+            role: Role::Producer,
+            name: "myqueue".into(),
+            create: Some(QueueOptions { capacity: 16_000 }),
+        })
         .await
         .unwrap()
         .unwrap();
@@ -68,7 +79,7 @@ pub async fn run(url: &'static str, num_messages: usize, num_threads: usize) {
     // push messages
     for _ in 0..num_messages {
         let msg = vec![b; 512 * 1024];
-        let res = client.push_msg(msg).await.unwrap();
+        let res = client.send_cmd(Command::PushMsg(msg)).await.unwrap();
         res.unwrap();
     }
 

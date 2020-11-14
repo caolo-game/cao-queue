@@ -8,7 +8,6 @@ use url::Url;
 type Ws = tokio_tungstenite::WebSocketStream<TcpStream>;
 
 pub struct Client {
-    role: Role,
     socket: Ws,
 }
 
@@ -43,40 +42,6 @@ impl Client {
     pub async fn close(&mut self) {
         self.socket.close(None).await.unwrap_or(())
     }
-
-    pub async fn active_q(
-        &mut self,
-        role: Role,
-        name: &str,
-        create: bool,
-    ) -> Result<CommandResult, ClientError> {
-        let cmd = Command::ActiveQueue {
-            role,
-            name: name.to_owned(),
-            create,
-        };
-        let res = self.send_cmd(cmd).await?;
-        self.role = role;
-        Ok(res)
-    }
-
-    pub async fn push_msg(&mut self, msg: Vec<u8>) -> Result<CommandResult, ClientError> {
-        let cmd = Command::PushMsg(msg);
-        self.send_cmd(cmd).await
-    }
-
-    pub async fn pop_msg(&mut self) -> Result<CommandResult, ClientError> {
-        let cmd = Command::PopMsg;
-        self.send_cmd(cmd).await
-    }
-
-    pub async fn listen_for_message(
-        &mut self,
-        timeout_ms: Option<u64>,
-    ) -> Result<CommandResult, ClientError> {
-        let cmd = Command::ListenForMsg { timeout_ms };
-        self.send_cmd(cmd).await
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -98,9 +63,6 @@ impl From<tokio_tungstenite::tungstenite::Error> for ClientError {
 pub async fn connect(url: &str) -> Result<Client, ClientError> {
     let (socket, _) = connect_async(Url::parse(url).map_err(ClientError::BadUrl)?).await?;
 
-    let client = Client {
-        role: Role::NoRole,
-        socket,
-    };
+    let client = Client { socket };
     Ok(client)
 }

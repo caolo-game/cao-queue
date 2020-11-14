@@ -58,11 +58,10 @@ impl SpmcClient {
                         e @ hash_map::Entry::Occupied(_) => {
                             Arc::clone(e.or_insert_with(|| unreachable!()))
                         }
-                        e @ hash_map::Entry::Vacant(_) if create => {
-                            // TODO: get size from msg
+                        e @ hash_map::Entry::Vacant(_) if create.is_some() => {
                             Arc::clone(e.or_insert_with(|| {
                                 debug!(self.log, "Creating queue");
-                                Arc::new(SpmcQueue::new(32000, name))
+                                Arc::new(SpmcQueue::new(create.unwrap().capacity as u64, name))
                             }))
                         }
                         _ => {

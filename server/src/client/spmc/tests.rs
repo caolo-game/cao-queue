@@ -7,6 +7,7 @@ pub fn setup_testing() {
     });
 }
 
+use cao_queue::commands::QueueOptions;
 use slog::{o, Drain};
 
 use super::*;
@@ -33,7 +34,7 @@ async fn change_q_cleans_up() {
             Command::ActiveQueue {
                 role: Role::Producer,
                 name: "boi".to_owned(),
-                create: true,
+                create: Some(QueueOptions { capacity: 8000 }),
             },
         )
         .await
@@ -48,7 +49,7 @@ async fn change_q_cleans_up() {
             Command::ActiveQueue {
                 role: Role::Producer,
                 name: "boi2".to_owned(),
-                create: true,
+                create: Some(QueueOptions { capacity: 8000 }),
             },
         )
         .await
@@ -72,7 +73,7 @@ async fn change_role_cleans_up() {
             Command::ActiveQueue {
                 role: Role::Producer,
                 name: "boi".to_owned(),
-                create: true,
+                create: Some(QueueOptions { capacity: 8000 }),
             },
         )
         .await
@@ -88,8 +89,6 @@ async fn change_role_cleans_up() {
 
     assert!(!q.has_producer.load(Ordering::Relaxed));
 }
-
-
 
 #[tokio::test]
 #[cfg_attr(miri, ignore)]
@@ -120,7 +119,7 @@ mod active_queue_command {
         let cmd = Command::ActiveQueue {
             role: Role::NoRole,
             name: "asd".to_owned(),
-            create: false, // <-- important
+            create: None, // <-- important
         };
 
         // note: in practice don't pass the same logger to the function as it override the internal one...
@@ -138,7 +137,7 @@ mod active_queue_command {
         let cmd = Command::ActiveQueue {
             role: Role::NoRole,
             name: "asd".to_owned(),
-            create: true,
+            create: Some(QueueOptions { capacity: 8000 }),
         };
 
         // note: in practice don't pass the same logger to the function as it override the internal one...
@@ -158,7 +157,7 @@ mod active_queue_command {
         let cmd = Command::ActiveQueue {
             role: Role::Producer,
             name: "asd".to_owned(),
-            create: true,
+            create: Some(QueueOptions { capacity: 8000 }),
         };
 
         {
@@ -182,7 +181,7 @@ mod active_queue_command {
         let cmd = Command::ActiveQueue {
             role: Role::Producer,
             name: "asd".to_owned(),
-            create: true,
+            create: Some(QueueOptions { capacity: 8000 }),
         };
 
         let res = client.handle_command(client.log.clone(), cmd).await;
