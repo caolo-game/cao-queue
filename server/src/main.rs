@@ -1,7 +1,7 @@
 mod client;
 
 use anyhow::Context;
-use client::spmc::SpmcClient;
+use client::{spmc::SpmcClient, QueueClient};
 use futures_util::{SinkExt, StreamExt};
 use slog_async::OverflowStrategy;
 use std::{
@@ -58,14 +58,13 @@ fn round_up_to_pow_2(mut v: u64) -> u64 {
     v + 1
 }
 
-async fn spmc_queue(log: Logger, stream: warp::ws::WebSocket, exchange: SpmcExchange) {
+async fn run_queue_client(log: Logger, stream: warp::ws::WebSocket, mut client: QueueClient) {
     info!(log, "Hello client");
-    let mut client = SpmcClient::new(log.clone(), Arc::clone(&exchange));
 
     async fn _queue_client(
         log_root: Logger,
         stream: warp::ws::WebSocket,
-        client: &mut SpmcClient,
+        client: &mut QueueClient,
     ) -> anyhow::Result<()> {
         let (mut tx, mut rx) = stream.split();
 
@@ -107,7 +106,13 @@ async fn spmc_queue(log: Logger, stream: warp::ws::WebSocket, exchange: SpmcExch
         warn!(log, "Error running client {:?}", err);
     }
     client.cleanup();
+
     info!(log, "Bye client");
+}
+
+async fn spmc_queue(log: Logger, stream: warp::ws::WebSocket, exchange: SpmcExchange) {
+    let client = SpmcClient::new(log.clone(), Arc::clone(&exchange));
+    run_queue_client(log, stream, QueueClient::Spmc(client)).await
 }
 
 #[tokio::main]
