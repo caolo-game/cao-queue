@@ -7,7 +7,7 @@ use std::{
     collections::hash_map, sync::atomic::Ordering, sync::Arc, time::Duration, time::Instant,
 };
 
-use cao_queue::{
+use caoq_core::{
     commands::Command, commands::CommandError, commands::CommandResponse, commands::CommandResult,
     message::OwnedMessage, Role,
 };

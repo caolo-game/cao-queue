@@ -5,7 +5,7 @@ WORKDIR /caoq
 RUN apk add clang lld libc-dev
 
 COPY ./server/ ./server/
-COPY ./cao-queue/ ./cao-queue/
+COPY ./core/ ./core/
 
 WORKDIR /caoq/server
 

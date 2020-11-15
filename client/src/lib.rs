@@ -1,5 +1,5 @@
-pub use cao_queue::{commands::*, message::OwnedMessage};
-pub use cao_queue::{MessageId, Role};
+pub use caoq_core::{commands::*, message::OwnedMessage};
+pub use caoq_core::{MessageId, Role};
 use futures_util::sink::SinkExt;
 use tokio::{net::TcpStream, stream::StreamExt};
 use tokio_tungstenite::{connect_async, tungstenite::Message};

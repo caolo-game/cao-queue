@@ -7,7 +7,7 @@ pub fn setup_testing() {
     });
 }
 
-use cao_queue::commands::QueueOptions;
+use caoq_core::commands::QueueOptions;
 use slog::{o, Drain};
 
 use super::*;

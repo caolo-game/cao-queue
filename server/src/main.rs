@@ -10,7 +10,7 @@ use std::{
 };
 use warp::{ws::Message, Filter};
 
-use cao_queue::{
+use caoq_core::{
     collections::spmcfifo::SpmcFifo, commands::Command, message::OwnedMessage, MessageId,
 };
 use slog::{debug, error, info, warn, Drain, Logger};

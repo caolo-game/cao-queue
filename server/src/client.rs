@@ -1,4 +1,4 @@
-use cao_queue::commands::{Command, CommandResult};
+use caoq_core::commands::{Command, CommandResult};
 use slog::Logger;
 
 pub mod spmc;
