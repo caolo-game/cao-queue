@@ -162,6 +162,7 @@ dependencies = [
  "caoq-core",
  "env_logger",
  "futures-util",
+ "parking_lot",
  "serde",
  "slog",
  "slog-async",

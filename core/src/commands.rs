@@ -32,6 +32,18 @@ pub enum Command {
     /// - Success if the queue was empty
     /// - Message
     PopMsg,
+    /// Send the response of a message
+    ///
+    /// ## On success
+    ///
+    /// - Success
+    MsgResponse { id: MessageId, payload: Vec<u8> },
+    /// Sends all accumulated responses to the client
+    ///
+    /// ## On success
+    ///
+    /// - Message[]
+    ConsumeResponses,
     /// Waits until a message is available and pops it
     ///
     /// ## On success
@@ -76,6 +88,11 @@ impl Debug for Command {
                 .debug_struct("Command::ListenForMsg")
                 .field("timeout_ms", timeout_ms)
                 .finish(),
+            Command::MsgResponse { id, .. } => f
+                .debug_struct("Command::MsgResponse")
+                .field("msg_id", id)
+                .finish(),
+            Command::ConsumeResponses => f.debug_struct("Command::ConsumeResponses").finish(),
         }
     }
 }
@@ -87,8 +104,9 @@ pub type CommandResult = Result<CommandResponse, CommandError>;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum CommandResponse {
     Success,
-    Message(OwnedMessage),
     MessageId(MessageId),
+    Message(OwnedMessage),
+    Messages(Vec<OwnedMessage>),
 }
 
 #[derive(Debug, thiserror::Error)]

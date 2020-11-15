@@ -4,12 +4,13 @@
 mod tests;
 
 use std::{
-    collections::hash_map, sync::atomic::Ordering, sync::Arc, time::Duration, time::Instant,
+    collections::hash_map, collections::HashMap, mem::take, sync::atomic::Ordering, sync::Arc,
+    time::Duration, time::Instant,
 };
 
 use caoq_core::{
     commands::Command, commands::CommandError, commands::CommandResponse, commands::CommandResult,
-    message::OwnedMessage, Role,
+    message::OwnedMessage, MessageId, Role,
 };
 use slog::{debug, trace, warn, Logger};
 
@@ -26,7 +27,7 @@ pub struct SpmcClient {
 impl SpmcClient {
     pub fn new(log: Logger, exchange: SpmcExchange) -> Self {
         Self {
-            exchange,
+            exchange: exchange.clone(),
             log,
             queue: None,
             role: Role::Consumer, // just as a placeholder, doesn't matter while queue is none
@@ -42,7 +43,7 @@ impl SpmcClient {
             let clients = q.clients.fetch_sub(1, Ordering::AcqRel) - 1;
             if clients == 0 && q.queue.is_empty() {
                 // this queue can be garbage collected
-                self.exchange.write().unwrap().remove(&q.name);
+                self.exchange.queues.write().unwrap().remove(&q.name);
             }
         }
     }
@@ -53,16 +54,14 @@ impl SpmcClient {
             Command::ActiveQueue { role, name, create } => {
                 debug!(self.log, "Switching queue");
                 let queue = {
-                    let mut exchange = self.exchange.write().unwrap();
+                    let mut exchange = self.exchange.queues.write().unwrap();
                     let q = match exchange.entry(name.clone()) {
-                        e @ hash_map::Entry::Occupied(_) => {
-                            Arc::clone(e.or_insert_with(|| unreachable!()))
-                        }
-                        e @ hash_map::Entry::Vacant(_) if create.is_some() => {
-                            Arc::clone(e.or_insert_with(|| {
-                                debug!(self.log, "Creating queue");
-                                Arc::new(SpmcQueue::new(create.unwrap().capacity as u64, name))
-                            }))
+                        hash_map::Entry::Occupied(e) => Arc::clone(e.get()),
+                        hash_map::Entry::Vacant(e) if create.is_some() => {
+                            debug!(self.log, "Creating queue");
+                            let value =
+                                Arc::new(SpmcQueue::new(create.unwrap().capacity as u64, name));
+                            Arc::clone(e.insert(value))
                         }
                         _ => {
                             return Err(CommandError::QueueNotFound);
@@ -185,6 +184,29 @@ impl SpmcClient {
                     }
                     sleep_duration = sleep_duration.mul_f64(1.2).min(Duration::from_millis(500));
                 }
+            }
+            Command::MsgResponse { id, payload } => {
+                let q = self.queue.as_ref().ok_or(CommandError::QueueNotFound)?;
+                let mut l = q.responses.lock();
+                l.insert(id, payload);
+                Ok(CommandResponse::Success)
+            }
+            Command::ConsumeResponses => {
+                if !self.role.is_producer() {
+                    return Err(CommandError::NotProducer);
+                }
+                let responses: HashMap<MessageId, Vec<u8>> = {
+                    let q = self.queue.as_ref().ok_or(CommandError::QueueNotFound)?;
+                    let mut l = q.responses.lock();
+                    take(&mut *l)
+                };
+
+                let response = responses
+                    .into_iter()
+                    .map(|(id, payload)| OwnedMessage { id, payload })
+                    .collect();
+
+                Ok(CommandResponse::Messages(response))
             }
         }
     }

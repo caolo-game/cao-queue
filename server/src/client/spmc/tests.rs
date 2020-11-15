@@ -17,8 +17,9 @@ fn test_logger() -> slog::Logger {
 }
 
 fn setup_client() -> SpmcClient {
-    let exchange = Arc::new(RwLock::new(Default::default()));
-
+    let exchange = SpmcExchange {
+        queues: Arc::new(RwLock::new(Default::default())),
+    };
     SpmcClient::new(test_logger(), exchange)
 }
 
@@ -144,7 +145,7 @@ mod active_queue_command {
         let res = client.handle_command(client.log.clone(), cmd).await;
         assert!(matches!(res.unwrap(), CommandResponse::Success));
 
-        assert!(client.exchange.read().unwrap().contains_key("asd"));
+        assert!(client.exchange.queues.read().unwrap().contains_key("asd"));
     }
 
     #[tokio::test]
@@ -161,7 +162,7 @@ mod active_queue_command {
         };
 
         {
-            let mut exch = client.exchange.write().unwrap();
+            let mut exch = client.exchange.queues.write().unwrap();
             exch.insert("asd".into(), Arc::new(SpmcQueue::new(128, "asd".into())));
             exch["asd"].has_producer.store(true, Ordering::Release);
         }
@@ -190,6 +191,7 @@ mod active_queue_command {
         assert!(
             client
                 .exchange
+                .queues
                 .read()
                 .unwrap()
                 .get("asd")

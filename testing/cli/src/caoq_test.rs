@@ -33,6 +33,14 @@ async fn consumer(url: &'_ str, num_messages: usize, num_threads: usize) {
                     break;
                 }
             }
+            Ok(caoq_client::CommandResponse::Messages(msgs)) => {
+                for msg in msgs {
+                    if msg.id.0 as usize > limit {
+                        has_msg_left = false;
+                        break;
+                    }
+                }
+            }
             Err(caoq_client::CommandError::LostProducer) => has_producer = false,
             Err(err) => panic!("{:?}", err),
         };

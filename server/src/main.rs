@@ -13,11 +13,15 @@ use warp::{ws::Message, Filter};
 use caoq_core::{
     collections::spmcfifo::SpmcFifo, commands::Command, message::OwnedMessage, MessageId,
 };
+use parking_lot::Mutex;
 use slog::{debug, error, info, warn, Drain, Logger};
 
-/// Collection of queues by name
-type SpmcExchange = Arc<RwLock<HashMap<QueueName, Arc<SpmcQueue>>>>;
 type QueueName = String; // TODO: short string?
+
+#[derive(Clone)]
+pub struct SpmcExchange {
+    pub queues: Arc<RwLock<HashMap<QueueName, Arc<SpmcQueue>>>>,
+}
 
 /// Single producer - multi consumer queue
 pub struct SpmcQueue {
@@ -27,6 +31,7 @@ pub struct SpmcQueue {
     /// number of connected, active clients
     pub clients: AtomicU64,
     pub name: QueueName,
+    pub responses: Arc<Mutex<HashMap<MessageId, Vec<u8>>>>,
 }
 
 unsafe impl<'a> Sync for SpmcQueue {}
@@ -41,6 +46,7 @@ impl SpmcQueue {
             queue: SpmcFifo::new(size as usize).expect("Failed to create the internal queue"),
             has_producer: AtomicBool::new(false),
             clients: AtomicU64::new(0),
+            responses: Arc::new(Mutex::new(HashMap::new())),
             name,
         }
     }
@@ -111,7 +117,7 @@ async fn run_queue_client(log: Logger, stream: warp::ws::WebSocket, mut client: 
 }
 
 async fn spmc_queue(log: Logger, stream: warp::ws::WebSocket, exchange: SpmcExchange) {
-    let client = SpmcClient::new(log.clone(), Arc::clone(&exchange));
+    let client = SpmcClient::new(log.clone(), exchange);
     run_queue_client(log, stream, QueueClient::Spmc(client)).await
 }
 
@@ -135,10 +141,12 @@ async fn main() {
     let log = Logger::root(drain, slog::o!());
 
     // the map might resize when inserting new queues, so put the queues behind pointers
-    let exchange: SpmcExchange = Arc::new(RwLock::new(HashMap::new()));
+    let exchange = SpmcExchange {
+        queues: Arc::new(RwLock::new(HashMap::new())),
+    };
 
     let exchange = {
-        let filter = warp::any().map(move || Arc::clone(&exchange));
+        let filter = warp::any().map(move || exchange.clone());
         move || filter.clone()
     };
 
