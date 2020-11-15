@@ -8,8 +8,9 @@ Message queue for distributed systems. Built for the needs of the Caolo project.
 ## TODO for v0.1
 
 
-- [ ] Docker setup
+- [x] Docker setup
 - [ ] Benchmarks comparing to RabbitMQ and Redis
 - [ ] Documentation
 - [ ] Multi-producer queues
+- [ ] Persist state to disk and reload it on restart
 

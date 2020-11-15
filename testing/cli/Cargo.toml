@@ -1,13 +1,10 @@
 [package]
-name = "caoq-cli"
+name = "test-cli"
 version = "0.1.0"
 authors = ["Daniel Kiss <littlesnorrboy@gmail.com>"]
 edition = "2018"
 
-[features]
-default = ["caoq-client"]
-
 [dependencies]
-caoq-client = { path = "../../client", optional = true }
+caoq-client = { path = "../../client" }
 clap = "2"
 tokio = { version = "0.3", features = ["full"] }

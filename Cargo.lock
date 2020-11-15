@@ -173,15 +173,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "caoq-cli"
-version = "0.1.0"
-dependencies = [
- "caoq-client",
- "clap",
- "tokio 0.3.3",
-]
-
-[[package]]
 name = "caoq-client"
 version = "0.1.0"
 dependencies = [
@@ -1467,6 +1458,15 @@ checksum = "c0863a3345e70f61d613eab32ee046ccd1bcc5f9105fe402c61fcd0c13eeb8b5"
 dependencies = [
  "dirs",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "test-cli"
+version = "0.1.0"
+dependencies = [
+ "caoq-client",
+ "clap",
+ "tokio 0.3.3",
 ]
 
 [[package]]
