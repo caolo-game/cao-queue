@@ -1,5 +1,7 @@
 #[cfg(feature = "collections")]
 pub mod spmcfifo;
+#[cfg(feature = "collections")]
+pub mod mpfifo;
 
 #[derive(Debug, Clone, thiserror::Error)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
