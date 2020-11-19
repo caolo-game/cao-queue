@@ -45,14 +45,15 @@ where
         // will retry pushing until either the queue is full or it succeeds
         'retry: loop {
             // begin
-            let next = self.next.load(Ordering::Relaxed);
+            // ensure next is read first
+            let next = self.next.load(Ordering::Acquire);
             let tail = self.tail.load(Ordering::Acquire);
             if incr(next, self.size_mask) == tail {
                 return Err(QueueError::Full);
             }
             let n = self
                 .next
-                .compare_and_swap(next, incr(next, self.size_mask), Ordering::Relaxed);
+                .compare_and_swap(next, incr(next, self.size_mask), Ordering::Release);
             if n != next {
                 // another thread got this slot
                 continue 'retry;
@@ -99,7 +100,7 @@ where
         Some(value)
     }
 
-    /// Pop for when only a multiple consumers exist
+    /// Pop for when multiple consumers exist
     pub fn pop_multi(&self) -> Option<T> {
         loop {
             let tail = self.tail.load(Ordering::Relaxed);
@@ -141,7 +142,7 @@ mod tests {
     #[test]
     #[cfg_attr(miri, ignore)]
     fn basic_push_pop() {
-        let queue: MpFifo<MessageId> = MpFifo::new(2048).unwrap();
+        let queue: MpFifo<MessageId> = MpFifo::new(16).unwrap(); // lot smaller capacity than items we push
         let queue = Arc::new(queue);
 
         let bar = Arc::new(Barrier::new(4));
@@ -154,7 +155,13 @@ mod tests {
                     std::thread::spawn(move || {
                         bar.wait(); // sync threads here to simulate contented queues
                         for j in 0..128 {
-                            queue.push(MessageId(i * 128 + j)).unwrap();
+                            'retry: loop {
+                                match queue.push(MessageId(i * 128 + j)) {
+                                    Ok(_) => break 'retry,
+                                    Err(QueueError::Full) => continue 'retry,
+                                    e @ _ => panic!("push failed {:?}", e),
+                                }
+                            }
                         }
                     })
                 })
