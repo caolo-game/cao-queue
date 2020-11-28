@@ -12,6 +12,6 @@ caoq-core = { path = "../core", default-features = false, features = [
 url = "2"
 thiserror = "*"
 tokio-tungstenite = "0.12"
-tokio = { version = "0.3", features = ["net"] }
+tokio = { version = "0.3", features = ["net", "stream"] }
 bincode = "1"
 futures-util = "*"

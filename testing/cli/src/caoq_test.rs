@@ -87,7 +87,7 @@ pub async fn run(url: &'static str, num_messages: usize, num_threads: usize) {
     // push messages
     for _ in 0..num_messages {
         let msg = vec![b; 512 * 1024];
-        let res = client.send_cmd(Command::PushMsg(msg)).await.unwrap();
+        let res: Result<CommandResponse, caoq_client::CommandError> = client.send_cmd(Command::PushMsg(msg)).await.unwrap();
         res.unwrap();
     }
 
