@@ -8,3 +8,8 @@ edition = "2018"
 caoq-client = { path = "../../client" }
 clap = "2"
 tokio = { version = "0.3", features = ["full"] }
+bincode = "1"
+
+[dependencies.redis]
+version = "0.17"
+features = ["tokio-rt-core"]

@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use caoq_client::{connect, Command, QueueOptions, Role};
+use caoq_client::{connect, Command, CommandResponse, QueueOptions, Role};
 
 async fn consumer(url: &'_ str, num_messages: usize, num_threads: usize) {
     let mut client = connect(url).await.unwrap();
@@ -14,7 +14,7 @@ async fn consumer(url: &'_ str, num_messages: usize, num_threads: usize) {
         .unwrap()
         .unwrap();
 
-    let limit = num_messages - num_threads;
+    let limit = num_messages - num_threads - 1;
     let mut has_producer = true;
     let mut has_msg_left = true;
 
@@ -25,15 +25,15 @@ async fn consumer(url: &'_ str, num_messages: usize, num_threads: usize) {
             .unwrap();
 
         match res {
-            Ok(caoq_client::CommandResponse::Success) => {}
-            Ok(caoq_client::CommandResponse::MessageId(_)) => {}
-            Ok(caoq_client::CommandResponse::Message(msg)) => {
+            Ok(CommandResponse::Success) => {}
+            Ok(CommandResponse::MessageId(_)) => {}
+            Ok(CommandResponse::Message(msg)) => {
                 if msg.id.0 as usize > limit {
                     has_msg_left = false;
                     break;
                 }
             }
-            Ok(caoq_client::CommandResponse::Messages(msgs)) => {
+            Ok(CommandResponse::Messages(msgs)) => {
                 for msg in msgs {
                     if msg.id.0 as usize > limit {
                         has_msg_left = false;
@@ -49,7 +49,7 @@ async fn consumer(url: &'_ str, num_messages: usize, num_threads: usize) {
     while has_msg_left {
         let res = client.send_cmd(Command::PopMsg).await.unwrap();
         match res.unwrap() {
-            caoq_client::CommandResponse::Message(msg) => {
+            CommandResponse::Message(msg) => {
                 if msg.id.0 as usize > limit {
                     has_msg_left = false;
                 }

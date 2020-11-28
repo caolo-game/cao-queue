@@ -1,10 +1,11 @@
 use clap::{App, Arg};
 
 mod caoq_test;
+mod redis_test;
 
 #[tokio::main]
 async fn main() {
-    let matches = App::new("allocation benchmark sample")
+    let matches = App::new("message queues benchmark")
         .arg(
             Arg::with_name("samples")
                 .short("s")
@@ -41,19 +42,24 @@ async fn main() {
         .and_then(|s| s.parse().ok())
         .unwrap_or(10_000);
 
-    let exec = {
-        match matches.value_of("queue").unwrap_or("caoq") {
-            "caoq" => {
-                async move {
-                    for _ in 0..samples {
-                        crate::caoq_test::run("ws://localhost:6942/spmc-queue-client", messages, 2)
-                            .await;
-                    }
+    match matches.value_of("queue").unwrap_or("caoq") {
+        "caoq" => {
+            async move {
+                for _ in 0..samples {
+                    crate::caoq_test::run("ws://localhost:6942/spmc-queue-client", messages, 2)
+                        .await;
                 }
             }
-            q @ _ => unimplemented!("Queue type ({}) isn't implemented", q),
+            .await
         }
-    };
-
-    exec.await;
+        "redis" => {
+            async move {
+                for _ in 0..samples {
+                    crate::redis_test::run("redis://localhost:6379/0", messages, 2).await;
+                }
+            }
+            .await
+        }
+        q @ _ => unimplemented!("Queue type ({}) isn't implemented", q),
+    }
 }
