@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use caoq_client::{connect, Command, CommandResponse, QueueOptions, Role};
+use caoq_client::{connect, CaoQError, Command, CommandError, CommandResponse, QueueOptions, Role};
 
 async fn consumer(url: &'_ str, num_messages: usize, num_threads: usize) {
     let mut client = connect(url).await.unwrap();
@@ -11,7 +11,6 @@ async fn consumer(url: &'_ str, num_messages: usize, num_threads: usize) {
             create: None,
         })
         .await
-        .unwrap()
         .unwrap();
 
     let limit = num_messages - num_threads - 1;
@@ -21,8 +20,7 @@ async fn consumer(url: &'_ str, num_messages: usize, num_threads: usize) {
     while has_producer {
         let res = client
             .send_cmd(Command::ListenForMsg { timeout_ms: None })
-            .await
-            .unwrap();
+            .await;
 
         match res {
             Ok(CommandResponse::Success) => {}
@@ -41,14 +39,14 @@ async fn consumer(url: &'_ str, num_messages: usize, num_threads: usize) {
                     }
                 }
             }
-            Err(caoq_client::CommandError::LostProducer) => has_producer = false,
+            Err(CaoQError::CommandError(CommandError::LostProducer)) => has_producer = false,
             Err(err) => panic!("{:?}", err),
         };
     }
     // pop the remaining messages if any
     while has_msg_left {
         let res = client.send_cmd(Command::PopMsg).await.unwrap();
-        match res.unwrap() {
+        match res {
             CommandResponse::Message(msg) => {
                 if msg.id.0 as usize > limit {
                     has_msg_left = false;
@@ -72,10 +70,9 @@ pub async fn run(url: &'static str, num_messages: usize, num_threads: usize) {
             create: Some(QueueOptions { capacity: 16_000 }),
         })
         .await
-        .unwrap()
         .unwrap();
 
-    client.send_cmd(Command::ClearQueue).await.unwrap().unwrap();
+    client.send_cmd(Command::ClearQueue).await.unwrap();
 
     // start listeners
     let futures = (0..num_threads)
@@ -87,8 +84,7 @@ pub async fn run(url: &'static str, num_messages: usize, num_threads: usize) {
     // push messages
     for _ in 0..num_messages {
         let msg = vec![b; 512 * 1024];
-        let res: Result<CommandResponse, caoq_client::CommandError> = client.send_cmd(Command::PushMsg(msg)).await.unwrap();
-        res.unwrap();
+        let _ = client.send_cmd(Command::PushMsg(msg)).await.unwrap();
     }
 
     client.close().await;
