@@ -117,7 +117,7 @@ impl SpmcClient {
                             res
                         };
                         let msg = OwnedMessage { id, payload };
-                        match q.queue.push(msg) {
+                        match q.queue.push(Arc::new(msg)) {
                             Ok(_) => Ok(CommandResponse::MessageId(id)),
                             Err(err) => {
                                 warn!(self.log, "Failed to push into queue {}", err);
@@ -135,7 +135,10 @@ impl SpmcClient {
                 }
                 let q = self.queue.as_ref().ok_or(CommandError::QueueNotFound)?;
                 match q.queue.pop() {
-                    Some(msg) => Ok(CommandResponse::Message(msg)),
+                    Some(msg) => {
+                        let msg = Arc::try_unwrap(msg).unwrap_or_else(|msg| msg.as_ref().clone());
+                        Ok(CommandResponse::Message(msg))
+                    }
                     None => Ok(CommandResponse::Success),
                 }
             }
@@ -164,6 +167,7 @@ impl SpmcClient {
                 let timeout = timeout_ms.map(Duration::from_millis);
                 'retry: loop {
                     if let Some(msg) = q.queue.pop() {
+                        let msg = Arc::try_unwrap(msg).unwrap_or_else(|msg| msg.as_ref().clone());
                         return Ok(CommandResponse::Message(msg));
                     }
                     if !q.has_producer.load(Ordering::Acquire) {

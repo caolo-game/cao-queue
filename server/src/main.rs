@@ -26,7 +26,7 @@ pub struct SpmcExchange {
 /// Single producer - multi consumer queue
 pub struct SpmcQueue {
     pub next_id: UnsafeCell<MessageId>,
-    pub queue: SpmcFifo<OwnedMessage>,
+    pub queue: SpmcFifo<Arc<OwnedMessage>>,
     pub has_producer: AtomicBool,
     /// number of connected, active clients
     pub clients: AtomicU64,

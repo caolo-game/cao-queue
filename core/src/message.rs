@@ -2,6 +2,7 @@ use std::{fmt::Debug, io::Write, ops::Deref, ops::DerefMut};
 
 use crate::MessageId;
 
+#[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct OwnedMessage {
     pub id: MessageId,

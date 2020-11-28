@@ -9,19 +9,19 @@ use std::{mem::MaybeUninit, sync::atomic::Ordering};
 
 type FixMessageBuffer<T> = Pin<Box<[MaybeUninit<T>]>>;
 
-pub struct SpmcFifo<T: Copy> {
+pub struct SpmcFifo<T> {
     size_mask: usize,
     head: AtomicUsize,
     tail: AtomicUsize,
     buffer: UnsafeCell<FixMessageBuffer<T>>,
 }
 
-unsafe impl<T: Copy> Sync for SpmcFifo<T> {}
-unsafe impl<T: Copy> Send for SpmcFifo<T> {}
+unsafe impl<T> Sync for SpmcFifo<T> {}
+unsafe impl<T> Send for SpmcFifo<T> {}
 
 impl<T> std::fmt::Debug for SpmcFifo<T>
 where
-    T: std::fmt::Debug + Copy + 'static,
+    T: std::fmt::Debug + 'static,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SpmcFifo")
@@ -48,28 +48,28 @@ struct QIterator<'a, T> {
     _m: std::marker::PhantomData<&'a i32>,
 }
 
-impl<'a, T: 'a + Copy> Iterator for QIterator<'a, T> {
-    type Item = T;
+impl<'a, T: 'a> Iterator for QIterator<'a, T> {
+    type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.head == self.tail {
             return None;
         }
         let item = unsafe { &*self.buffer.add(self.tail) };
-        let item = unsafe { *item.as_ptr() };
+        let item = unsafe { &*item.as_ptr() };
         self.tail = incr(self.tail, self.size_mask);
 
         Some(item)
     }
 }
-impl<T: Copy + 'static> SpmcFifo<T> {
+impl<T> SpmcFifo<T> {
     /// Iterates over the messages without consuming them!
     ///
     /// # Safety
     ///
     /// Iterating while also mutating the queue _may_ result in bad things happening.
     /// Use with care!
-    pub fn iter(&self) -> impl Iterator<Item = T> {
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
         QIterator {
             buffer: unsafe {
                 let buf = self.buffer.get();
@@ -86,7 +86,7 @@ impl<T: Copy + 'static> SpmcFifo<T> {
 
 impl<T> SpmcFifo<T>
 where
-    T: Unpin + Copy,
+    T: Unpin,
 {
     /// Size must be a power of two
     ///
@@ -147,7 +147,7 @@ where
             let new_tail = incr(tail, self.size_mask);
 
             let item = unsafe {
-                let item = self.buffer_mut()[tail];
+                let item = std::mem::replace(&mut self.buffer_mut()[tail], MaybeUninit::uninit());
                 item.assume_init()
             };
 
