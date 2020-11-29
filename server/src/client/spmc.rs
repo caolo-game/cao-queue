@@ -12,23 +12,21 @@ use caoq_core::{
     commands::Command, commands::CommandError, commands::CommandResponse, commands::CommandResult,
     message::OwnedMessage, MessageId, Role,
 };
-use slog::{debug, trace, warn, Logger};
+use tracing::{debug, trace, warn};
 
 use crate::{SpmcExchange, SpmcQueue};
 
 /// Local data of a client of the server
 pub struct SpmcClient {
-    pub log: Logger,
     pub role: Role,
     pub queue: Option<Arc<SpmcQueue>>,
     pub exchange: SpmcExchange,
 }
 
 impl SpmcClient {
-    pub fn new(log: Logger, exchange: SpmcExchange) -> Self {
+    pub fn new(exchange: SpmcExchange) -> Self {
         Self {
             exchange: exchange.clone(),
-            log,
             queue: None,
             role: Role::Consumer, // just as a placeholder, doesn't matter while queue is none
         }
@@ -48,17 +46,16 @@ impl SpmcClient {
         }
     }
 
-    pub async fn handle_command(&mut self, log: Logger, cmd: Command) -> CommandResult {
-        self.log = log.new(slog::o!("role" => format!("{:?}", self.role)));
+    pub async fn handle_command(&mut self, cmd: Command) -> CommandResult {
         match cmd {
             Command::ActiveQueue { role, name, create } => {
-                debug!(self.log, "Switching queue");
+                debug!("Switching queue");
                 let queue = {
                     let mut exchange = self.exchange.queues.write().unwrap();
                     let q = match exchange.entry(name.clone()) {
                         hash_map::Entry::Occupied(e) => Arc::clone(e.get()),
                         hash_map::Entry::Vacant(e) if create.is_some() => {
-                            debug!(self.log, "Creating queue");
+                            debug!("Creating queue");
                             let value =
                                 Arc::new(SpmcQueue::new(create.unwrap().capacity as u64, name));
                             Arc::clone(e.insert(value))
@@ -87,7 +84,7 @@ impl SpmcClient {
                 Ok(CommandResponse::Success)
             }
             Command::ChangeRole(role) => {
-                debug!(self.log, "Changing role");
+                debug!("Changing role");
                 if self.queue.is_none() {
                     return Err(CommandError::QueueNotFound);
                 }
@@ -104,7 +101,7 @@ impl SpmcClient {
                 Ok(CommandResponse::Success)
             }
             Command::PushMsg(payload) => {
-                debug!(self.log, "Pushing msg");
+                debug!("Pushing msg");
                 if !self.role.is_producer() {
                     return Err(CommandError::NotProducer);
                 }
@@ -120,7 +117,7 @@ impl SpmcClient {
                         match q.queue.push(Arc::new(msg)) {
                             Ok(_) => Ok(CommandResponse::MessageId(id)),
                             Err(err) => {
-                                warn!(self.log, "Failed to push into queue {}", err);
+                                warn!("Failed to push into queue {}", err);
                                 Err(CommandError::QueueError(err))
                             }
                         }
@@ -129,7 +126,7 @@ impl SpmcClient {
                 }
             }
             Command::PopMsg => {
-                debug!(self.log, "Popping msg");
+                debug!("Popping msg");
                 if !self.role.is_consumer() {
                     return Err(CommandError::NotConsumer);
                 }
@@ -143,7 +140,7 @@ impl SpmcClient {
                 }
             }
             Command::ClearQueue => {
-                debug!(self.log, "Clearing queue");
+                debug!("Clearing queue");
                 if !self.role.is_producer() {
                     return Err(CommandError::NotProducer);
                 }
@@ -152,7 +149,7 @@ impl SpmcClient {
                 Ok(CommandResponse::Success)
             }
             Command::ListenForMsg { timeout_ms } => {
-                debug!(self.log, "Listening for message");
+                debug!("Listening for message");
                 if !self.role.is_consumer() {
                     return Err(CommandError::NotConsumer);
                 }
@@ -174,7 +171,6 @@ impl SpmcClient {
                         return Err(CommandError::LostProducer);
                     }
                     trace!(
-                        self.log,
                         "No messages in the queue, sleeping for {:?}",
                         sleep_duration
                     );

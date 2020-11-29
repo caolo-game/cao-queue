@@ -9,18 +9,13 @@ edition = "2018"
 caoq-core = { path = "../core", features = ["serde", "collections"] }
 tokio = { version = "0.2", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
-slog = { version = "2", features = [
-    "max_level_trace",
-    "release_max_level_info"
-] }
-slog-term = "2"
-slog-async = "2"
 anyhow = "1"
 bincode = "1"
 futures-util = "0.3"
 warp = "0.2"
 parking_lot = "0.11"
+tracing = "0.1"
+tracing-subscriber = "*"
 
 [dev-dependencies]
 env_logger = { version = "0.7", default-features = false }
-slog-stdlog = "3"

@@ -1,5 +1,5 @@
 use caoq_core::commands::{Command, CommandResult};
-use slog::{debug, Logger};
+use tracing::debug;
 
 pub mod spmc;
 
@@ -14,10 +14,10 @@ impl QueueClient {
         }
     }
 
-    pub async fn handle_command(&mut self, log: Logger, cmd: Command) -> CommandResult {
-        debug!(log, "Handling command {:?}", cmd);
+    pub async fn handle_command(&mut self, cmd: Command) -> CommandResult {
+        debug!("Handling command {:?}", cmd);
         match self {
-            QueueClient::Spmc(c) => c.handle_command(log, cmd).await,
+            QueueClient::Spmc(c) => c.handle_command(cmd).await,
         }
     }
 }

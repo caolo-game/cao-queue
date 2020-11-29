@@ -3,18 +3,18 @@ mod client;
 use anyhow::Context;
 use client::{spmc::SpmcClient, QueueClient};
 use futures_util::{SinkExt, StreamExt};
-use slog_async::OverflowStrategy;
 use std::{
     cell::UnsafeCell, collections::HashMap, env, net::IpAddr, sync::atomic::AtomicBool,
     sync::atomic::AtomicU64, sync::Arc, sync::RwLock,
 };
+use tracing_subscriber::fmt::format::FmtSpan;
 use warp::{ws::Message, Filter};
 
 use caoq_core::{
     collections::spmcbounded::SpmcBounded, commands::Command, message::OwnedMessage, MessageId,
 };
 use parking_lot::Mutex;
-use slog::{debug, error, info, warn, Drain, Logger};
+use tracing::{debug, error, info, warn};
 
 type QueueName = String; // TODO: short string?
 
@@ -64,42 +64,37 @@ fn round_up_to_pow_2(mut v: u64) -> u64 {
     v + 1
 }
 
-async fn run_queue_client(log: Logger, stream: warp::ws::WebSocket, mut client: QueueClient) {
-    info!(log, "Hello client");
+async fn run_queue_client(stream: warp::ws::WebSocket, mut client: QueueClient) {
+    info!("Hello client");
 
     async fn _queue_client(
-        log_root: Logger,
         stream: warp::ws::WebSocket,
         client: &mut QueueClient,
     ) -> anyhow::Result<()> {
         let (mut tx, mut rx) = stream.split();
 
-        let log = log_root.clone();
         while let Some(result) = rx.next().await {
             let msg = match result {
                 Ok(m) => m,
                 Err(err) => {
-                    warn!(log, "Websocket error {:?}", err);
+                    warn!("Websocket error {:?}", err);
                     break;
                 }
             };
-            debug!(log, "Handling incoming message");
+            debug!("Handling incoming message");
             if msg.is_binary() || msg.is_text() {
                 let cmd: Command = match bincode::deserialize(msg.as_bytes()) {
                     Ok(m) => m,
                     Err(err) => {
-                        warn!(log, "Failed to deserialize message {:?}", err);
+                        warn!("Failed to deserialize message {:?}", err);
                         continue;
                     }
                 };
-                debug!(log, "Received command {:?}", cmd);
-                let res = client
-                    .handle_command(log.clone(), cmd)
-                    .await
-                    .map_err(|err| {
-                        debug!(log, "Failed to handle message {:?}", err);
-                        err
-                    });
+                debug!("Received command {:?}", cmd);
+                let res = client.handle_command(cmd).await.map_err(|err| {
+                    debug!("Failed to handle message {:?}", err);
+                    err
+                });
                 let msg = Message::binary(bincode::serialize(&res).unwrap());
                 tx.send(msg)
                     .await
@@ -108,37 +103,33 @@ async fn run_queue_client(log: Logger, stream: warp::ws::WebSocket, mut client: 
         }
         Ok(())
     }
-    if let Err(err) = _queue_client(log.clone(), stream, &mut client).await {
-        warn!(log, "Error running client {:?}", err);
+    if let Err(err) = _queue_client(stream, &mut client).await {
+        warn!("Error running client {:?}", err);
     }
     client.cleanup();
 
-    info!(log, "Bye client");
+    info!("Bye client");
 }
 
-async fn spmc_queue(log: Logger, stream: warp::ws::WebSocket, exchange: SpmcExchange) {
-    let client = SpmcClient::new(log.clone(), exchange);
-    run_queue_client(log, stream, QueueClient::Spmc(client)).await
+async fn spmc_queue(stream: warp::ws::WebSocket, exchange: SpmcExchange) {
+    let client = SpmcClient::new(exchange);
+    run_queue_client(stream, QueueClient::Spmc(client)).await
 }
 
 #[tokio::main]
 async fn main() {
-    let decorator = slog_term::TermDecorator::new().build();
-    let termdrain = slog_term::FullFormat::new(decorator).build().fuse();
-    let strategy;
-    #[cfg(debug_assertions)]
-    {
-        strategy = OverflowStrategy::Block;
-    }
-    #[cfg(not(debug_assertions))]
-    {
-        strategy = OverflowStrategy::DropAndReport;
-    }
-    let drain = slog_async::Async::new(termdrain)
-        .overflow_strategy(strategy)
-        .build()
-        .fuse();
-    let log = Logger::root(drain, slog::o!());
+    let filter = std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_owned());
+    // Configure the default `tracing` subscriber.
+    // The `fmt` subscriber from the `tracing-subscriber` crate logs `tracing`
+    // events to stdout. Other subscribers are available for integrating with
+    // distributed tracing systems such as OpenTelemetry.
+    tracing_subscriber::fmt()
+        // Use the filter we built above to determine which traces to record.
+        .with_env_filter(filter)
+        // Record an event when each span closes. This can be used to time our
+        // routes' durations!
+        .with_span_events(FmtSpan::CLOSE)
+        .init();
 
     // the map might resize when inserting new queues, so put the queues behind pointers
     let exchange = SpmcExchange {
@@ -150,31 +141,24 @@ async fn main() {
         move || filter.clone()
     };
 
-    let log_filter = {
-        let log = log.clone();
-        let filter = warp::any().map(move || log.clone());
-        move || filter.clone()
-    };
-
     let spmc_queue = warp::get()
         .and(warp::path!("spmc"))
         .and(warp::ws())
         .and(exchange())
-        .and(log_filter())
-        .map(|ws: warp::ws::Ws, exchange, log| {
-            ws.on_upgrade(move |socket| spmc_queue(log, socket, exchange))
+        .map(|ws: warp::ws::Ws, exchange| {
+            ws.on_upgrade(move |socket| spmc_queue(socket, exchange))
         });
 
     let health = warp::get().and(warp::path("health")).map(warp::reply);
 
-    let api = spmc_queue.or(health);
+    let api = spmc_queue.or(health).with(warp::trace::request());
 
     let host: IpAddr = env::var("HOST")
         .ok()
         .and_then(|host| {
             host.parse()
                 .map_err(|e| {
-                    error!(log, "Failed to parse host {:?}", e);
+                    error!("Failed to parse host {:?}", e);
                 })
                 .ok()
         })
@@ -184,11 +168,11 @@ async fn main() {
         .map_err(anyhow::Error::new)
         .and_then(|port| port.parse().map_err(anyhow::Error::new))
         .unwrap_or_else(|err| {
-            warn!(log, "Failed to parse port number: {}", err);
+            warn!("Failed to parse port number: {}", err);
             6942
         });
 
-    info!(log, "Starting service on {:?}:{:?}", host, port);
+    info!("Starting service on {:?}:{:?}", host, port);
 
     warp::serve(api).run((host, port)).await;
 }
