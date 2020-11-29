@@ -1,11 +1,16 @@
-use async_std::net::TcpStream;
-use async_tungstenite::{async_std::connect_async, tungstenite::Message};
+use async_tls::TlsConnector;
+use async_tungstenite::{async_std::connect_async_with_tls_connector, tungstenite::Message};
 pub use caoq_core::{commands::*, message::OwnedMessage};
 pub use caoq_core::{MessageId, Role};
 use futures_util::{sink::SinkExt, StreamExt};
 use url::Url;
 
-type Ws = async_tungstenite::WebSocketStream<TcpStream>;
+type Ws = async_tungstenite::WebSocketStream<
+    async_tungstenite::stream::Stream<
+        async_std::net::TcpStream,
+        async_tls::client::TlsStream<async_std::net::TcpStream>,
+    >,
+>;
 
 pub struct Client {
     socket: Ws,
@@ -169,7 +174,10 @@ impl From<async_tungstenite::tungstenite::Error> for ClientError {
 }
 
 pub async fn connect(url: &str) -> Result<Client, ClientError> {
-    let (socket, _) = connect_async(Url::parse(url).map_err(ClientError::BadUrl)?).await?;
+    let url = Url::parse(url).map_err(ClientError::BadUrl)?;
+
+    let connector = TlsConnector::default();
+    let (socket, _) = connect_async_with_tls_connector(url, Some(connector)).await?;
 
     let client = Client { socket };
     Ok(client)

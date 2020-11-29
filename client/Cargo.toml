@@ -12,7 +12,8 @@ default = []
 caoq-core = { path = "../core", default-features = false, features = ["serde"] }
 url = "2"
 thiserror = "*"
-async-tungstenite = { version = "0.10", features = ["async-std-runtime"] }
+async-tungstenite = { version = "0.10", features = ["async-std-runtime", "async-tls"] }
 async-std = { version = "1" }
+async-tls = "0.10"
 bincode = "1"
 futures-util = "*"

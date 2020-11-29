@@ -40,7 +40,7 @@ async fn main() {
     let messages: usize = matches
         .value_of("messages")
         .and_then(|s| s.parse().ok())
-        .unwrap_or(10_000);
+        .unwrap_or(100);
 
     match matches.value_of("queue").unwrap_or("caoq") {
         "caoq" => {
