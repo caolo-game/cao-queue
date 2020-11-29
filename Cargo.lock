@@ -145,6 +145,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-tungstenite"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39eca8dd578b18e557361e50ca767df55c5e62f690a5e53868c3c7a8123145b7"
+dependencies = [
+ "async-std",
+ "futures-io",
+ "futures-util",
+ "log 0.4.11",
+ "pin-project 1.0.1",
+ "tungstenite",
+]
+
+[[package]]
 name = "atomic-waker"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -319,12 +333,12 @@ dependencies = [
 name = "caoq-client"
 version = "0.1.0"
 dependencies = [
+ "async-std",
+ "async-tungstenite",
  "bincode",
  "caoq-core",
  "futures-util",
  "thiserror",
- "tokio 0.3.3",
- "tokio-tungstenite 0.12.0",
  "url",
 ]
 
@@ -1909,19 +1923,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tokio-tungstenite"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0381c1e6e08908317cee104781ca48afe03f37cc857792b85f01f9828fb55ba3"
-dependencies = [
- "futures-util",
- "log 0.4.11",
- "pin-project 1.0.1",
- "tokio 0.3.3",
- "tungstenite",
-]
-
-[[package]]
 name = "tokio-util"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2130,7 +2131,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "tokio 0.2.22",
- "tokio-tungstenite 0.11.0",
+ "tokio-tungstenite",
  "tower-service",
  "tracing",
  "tracing-futures",

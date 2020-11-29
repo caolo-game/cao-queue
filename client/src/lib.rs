@@ -1,11 +1,11 @@
+use async_std::net::TcpStream;
+use async_tungstenite::{async_std::connect_async, tungstenite::Message};
 pub use caoq_core::{commands::*, message::OwnedMessage};
 pub use caoq_core::{MessageId, Role};
-use futures_util::sink::SinkExt;
-use tokio::{net::TcpStream, stream::StreamExt};
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use futures_util::{sink::SinkExt, StreamExt};
 use url::Url;
 
-type Ws = tokio_tungstenite::WebSocketStream<TcpStream>;
+type Ws = async_tungstenite::WebSocketStream<TcpStream>;
 
 pub struct Client {
     socket: Ws,
@@ -157,13 +157,13 @@ pub enum ClientError {
     #[error("Failed to parse url {0}")]
     BadUrl(url::ParseError),
     #[error("Websocket error: {0}")]
-    WebsocketError(tokio_tungstenite::tungstenite::Error),
+    WebsocketError(async_tungstenite::tungstenite::Error),
     #[error("Websocket connection closed {0:?}")]
     ConnectionClosed(Option<String>),
 }
 
-impl From<tokio_tungstenite::tungstenite::Error> for ClientError {
-    fn from(err: tokio_tungstenite::tungstenite::Error) -> Self {
+impl From<async_tungstenite::tungstenite::Error> for ClientError {
+    fn from(err: async_tungstenite::tungstenite::Error) -> Self {
         ClientError::WebsocketError(err)
     }
 }

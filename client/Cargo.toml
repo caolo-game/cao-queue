@@ -4,14 +4,15 @@ version = "0.1.0"
 authors = ["Daniel Kiss <littlesnorrboy@gmail.com>"]
 edition = "2018"
 
+[features]
+default = []
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-caoq-core = { path = "../core", default-features = false, features = [
-    "serde"
-] }
+caoq-core = { path = "../core", default-features = false, features = ["serde"] }
 url = "2"
 thiserror = "*"
-tokio-tungstenite = "0.12"
-tokio = { version = "0.3", features = ["net", "stream"] }
+async-tungstenite = { version = "0.10", features = ["async-std-runtime"] }
+async-std = { version = "1" }
 bincode = "1"
 futures-util = "*"
