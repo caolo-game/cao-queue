@@ -173,8 +173,10 @@ impl From<async_tungstenite::tungstenite::Error> for ClientError {
     }
 }
 
+/// TODO: queue type
 pub async fn connect(url: &str) -> Result<Client, ClientError> {
     let url = Url::parse(url).map_err(ClientError::BadUrl)?;
+    let url = url.join("spmc").map_err(ClientError::BadUrl)?;
 
     let connector = TlsConnector::default();
     let (socket, _) = connect_async_with_tls_connector(url, Some(connector)).await?;

@@ -157,7 +157,7 @@ async fn main() {
     };
 
     let spmc_queue = warp::get()
-        .and(warp::path!("spmc-queue-client"))
+        .and(warp::path!("spmc"))
         .and(warp::ws())
         .and(exchange())
         .and(log_filter())

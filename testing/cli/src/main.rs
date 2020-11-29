@@ -46,8 +46,7 @@ async fn main() {
         "caoq" => {
             async move {
                 for _ in 0..samples {
-                    crate::caoq_test::run("ws://localhost:6942/spmc-queue-client", messages, 2)
-                        .await;
+                    crate::caoq_test::run("ws://localhost:6942/spmc", messages, 2).await;
                 }
             }
             .await
