@@ -1,5 +1,5 @@
 #[cfg(feature = "collections")]
-pub mod spmcfifo;
+pub mod spmcbounded;
 
 #[derive(Debug, Clone, thiserror::Error)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

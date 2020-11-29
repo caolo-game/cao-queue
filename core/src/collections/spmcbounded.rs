@@ -1,6 +1,6 @@
-//! # SpmcFifo
+//! # SpmcBounded
 //!
-//! Single Producer Multi Consumer First In First Out Queue
+//! Single Producer Multi Consumer bounded (capacity) queue
 //!
 use super::QueueError;
 
@@ -9,22 +9,22 @@ use std::{mem::MaybeUninit, sync::atomic::Ordering};
 
 type FixMessageBuffer<T> = Pin<Box<[MaybeUninit<T>]>>;
 
-pub struct SpmcFifo<T> {
+pub struct SpmcBounded<T> {
     size_mask: usize,
     head: AtomicUsize,
     tail: AtomicUsize,
     buffer: UnsafeCell<FixMessageBuffer<T>>,
 }
 
-unsafe impl<T> Sync for SpmcFifo<T> {}
-unsafe impl<T> Send for SpmcFifo<T> {}
+unsafe impl<T> Sync for SpmcBounded<T> {}
+unsafe impl<T> Send for SpmcBounded<T> {}
 
-impl<T> std::fmt::Debug for SpmcFifo<T>
+impl<T> std::fmt::Debug for SpmcBounded<T>
 where
     T: std::fmt::Debug + 'static,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SpmcFifo")
+        f.debug_struct("SpmcBounded")
             .field("head", &self.head.load(Ordering::Relaxed))
             .field("tail", &self.tail.load(Ordering::Relaxed))
             .field("capacity", &(self.size_mask + 1))
@@ -62,7 +62,7 @@ impl<'a, T: 'a> Iterator for QIterator<'a, T> {
         Some(item)
     }
 }
-impl<T> SpmcFifo<T> {
+impl<T> SpmcBounded<T> {
     /// Iterates over the messages without consuming them!
     ///
     /// # Safety
@@ -84,7 +84,7 @@ impl<T> SpmcFifo<T> {
     }
 }
 
-impl<T> SpmcFifo<T>
+impl<T> SpmcBounded<T>
 where
     T: Unpin,
 {
@@ -189,7 +189,7 @@ mod tests {
     #[cfg_attr(miri, ignore)]
     fn basic_push_pop() {
         let mut msgs = Vec::with_capacity(128);
-        let queue: SpmcFifo<MessageId> = SpmcFifo::new(512).unwrap();
+        let queue: SpmcBounded<MessageId> = SpmcBounded::new(512).unwrap();
         let queue = Arc::new(queue);
 
         let worker = {
@@ -227,7 +227,7 @@ mod tests {
     #[test]
     fn test_full_push_fails() {
         let mut msgs = Vec::with_capacity(17);
-        let queue = SpmcFifo::new(16).unwrap();
+        let queue = SpmcBounded::new(16).unwrap();
 
         for i in 0..15 {
             // size - 1

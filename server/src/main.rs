@@ -11,7 +11,7 @@ use std::{
 use warp::{ws::Message, Filter};
 
 use caoq_core::{
-    collections::spmcfifo::SpmcFifo, commands::Command, message::OwnedMessage, MessageId,
+    collections::spmcbounded::SpmcBounded, commands::Command, message::OwnedMessage, MessageId,
 };
 use parking_lot::Mutex;
 use slog::{debug, error, info, warn, Drain, Logger};
@@ -26,7 +26,7 @@ pub struct SpmcExchange {
 /// Single producer - multi consumer queue
 pub struct SpmcQueue {
     pub next_id: UnsafeCell<MessageId>,
-    pub queue: SpmcFifo<Arc<OwnedMessage>>,
+    pub queue: SpmcBounded<Arc<OwnedMessage>>,
     pub has_producer: AtomicBool,
     /// number of connected, active clients
     pub clients: AtomicU64,
@@ -43,7 +43,7 @@ impl SpmcQueue {
         }
         Self {
             next_id: UnsafeCell::new(MessageId(0)),
-            queue: SpmcFifo::new(size as usize).expect("Failed to create the internal queue"),
+            queue: SpmcBounded::new(size as usize).expect("Failed to create the internal queue"),
             has_producer: AtomicBool::new(false),
             clients: AtomicU64::new(0),
             responses: Arc::new(Mutex::new(HashMap::new())),
