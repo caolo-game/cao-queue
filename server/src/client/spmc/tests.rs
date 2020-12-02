@@ -8,19 +8,14 @@ pub fn setup_testing() {
 }
 
 use caoq_core::commands::QueueOptions;
-use slog::{o, Drain};
 
 use super::*;
-
-fn test_logger() -> slog::Logger {
-    Logger::root(slog_stdlog::StdLog.fuse(), o!())
-}
 
 fn setup_client() -> SpmcClient {
     let exchange = SpmcExchange {
         queues: Arc::new(RwLock::new(Default::default())),
     };
-    SpmcClient::new(test_logger(), exchange)
+    SpmcClient::new(exchange)
 }
 
 #[tokio::test]
@@ -30,14 +25,11 @@ async fn change_q_cleans_up() {
 
     let mut client = setup_client();
     client
-        .handle_command(
-            client.log.clone(),
-            Command::ActiveQueue {
-                role: Role::Producer,
-                name: "boi".to_owned(),
-                create: Some(QueueOptions { capacity: 8000 }),
-            },
-        )
+        .handle_command(Command::ActiveQueue {
+            role: Role::Producer,
+            name: "boi".to_owned(),
+            create: Some(QueueOptions { capacity: 8000 }),
+        })
         .await
         .unwrap();
 
@@ -45,14 +37,11 @@ async fn change_q_cleans_up() {
     assert!(q.has_producer.load(Ordering::Relaxed));
 
     client
-        .handle_command(
-            client.log.clone(),
-            Command::ActiveQueue {
-                role: Role::Producer,
-                name: "boi2".to_owned(),
-                create: Some(QueueOptions { capacity: 8000 }),
-            },
-        )
+        .handle_command(Command::ActiveQueue {
+            role: Role::Producer,
+            name: "boi2".to_owned(),
+            create: Some(QueueOptions { capacity: 8000 }),
+        })
         .await
         .unwrap();
 
@@ -69,14 +58,11 @@ async fn change_role_cleans_up() {
 
     let mut client = setup_client();
     client
-        .handle_command(
-            client.log.clone(),
-            Command::ActiveQueue {
-                role: Role::Producer,
-                name: "boi".to_owned(),
-                create: Some(QueueOptions { capacity: 8000 }),
-            },
-        )
+        .handle_command(Command::ActiveQueue {
+            role: Role::Producer,
+            name: "boi".to_owned(),
+            create: Some(QueueOptions { capacity: 8000 }),
+        })
         .await
         .unwrap();
 
@@ -84,7 +70,7 @@ async fn change_role_cleans_up() {
     assert!(q.has_producer.load(Ordering::Relaxed));
 
     client
-        .handle_command(client.log.clone(), Command::ChangeRole(Role::Consumer))
+        .handle_command(Command::ChangeRole(Role::Consumer))
         .await
         .unwrap();
 
@@ -101,7 +87,7 @@ async fn clear_fails_if_not_producer() {
     let cmd = Command::ClearQueue;
 
     let err = client
-        .handle_command(client.log.clone(), cmd)
+        .handle_command(cmd)
         .await
         .expect_err("Expected clear to fail");
     assert!(matches!(err, CommandError::NotProducer));
@@ -124,7 +110,7 @@ mod active_queue_command {
         };
 
         // note: in practice don't pass the same logger to the function as it override the internal one...
-        let res = client.handle_command(client.log.clone(), cmd).await;
+        let res = client.handle_command(cmd).await;
         assert!(matches!(res.unwrap_err(), CommandError::QueueNotFound));
     }
 
@@ -142,7 +128,7 @@ mod active_queue_command {
         };
 
         // note: in practice don't pass the same logger to the function as it override the internal one...
-        let res = client.handle_command(client.log.clone(), cmd).await;
+        let res = client.handle_command(cmd).await;
         assert!(matches!(res.unwrap(), CommandResponse::Success));
 
         assert!(client.exchange.queues.read().unwrap().contains_key("asd"));
@@ -168,7 +154,7 @@ mod active_queue_command {
         }
 
         // note: in practice don't pass the same logger to the function as it override the internal one...
-        let res = client.handle_command(client.log.clone(), cmd).await;
+        let res = client.handle_command(cmd).await;
         assert!(matches!(res.unwrap_err(), CommandError::HasProducer));
     }
 
@@ -185,7 +171,7 @@ mod active_queue_command {
             create: Some(QueueOptions { capacity: 8000 }),
         };
 
-        let res = client.handle_command(client.log.clone(), cmd).await;
+        let res = client.handle_command(cmd).await;
         assert!(matches!(res.unwrap(), CommandResponse::Success));
 
         assert!(
