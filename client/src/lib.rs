@@ -40,7 +40,8 @@ impl Client {
                     Message::Close(msg) => {
                         return Err(ClientError::ConnectionClosed(
                             msg.map(|msg| format!("{:?}", msg)),
-                        ))?
+                        )
+                        .into())
                     }
                 }
             }

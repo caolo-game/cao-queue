@@ -26,7 +26,7 @@ pub struct SpmcClient {
 impl SpmcClient {
     pub fn new(exchange: SpmcExchange) -> Self {
         Self {
-            exchange: exchange.clone(),
+            exchange,
             queue: None,
             role: Role::Consumer, // just as a placeholder, doesn't matter while queue is none
         }

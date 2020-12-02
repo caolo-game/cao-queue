@@ -60,6 +60,6 @@ async fn main() {
             }
             .await
         }
-        q @ _ => unimplemented!("Queue type ({}) isn't implemented", q),
+        q => unimplemented!("Queue type ({}) isn't implemented", q),
     }
 }
