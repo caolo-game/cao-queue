@@ -208,6 +208,24 @@ impl SpmcClient {
 
                 Ok(CommandResponse::Messages(response))
             }
+            Command::GetSingleResponse(id) => {
+                if !self.role.is_producer() {
+                    return Err(CommandError::NotProducer);
+                }
+                let response: Option<Vec<u8>> = {
+                    let q = self.queue.as_ref().ok_or(CommandError::QueueNotFound)?;
+                    let mut l = q.responses.lock();
+                    l.remove(&id)
+                };
+
+                match response {
+                    Some(payload) => {
+                        let response = OwnedMessage { id, payload };
+                        Ok(CommandResponse::Message(response))
+                    }
+                    None => Ok(CommandResponse::Success),
+                }
+            }
         }
     }
 }

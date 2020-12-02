@@ -44,6 +44,13 @@ pub enum Command {
     ///
     /// - Message[]
     ConsumeResponses,
+    /// Retrieve the response to the given message
+    ///
+    /// ## On success
+    ///
+    /// - Message
+    /// - Success if there is no response available
+    GetSingleResponse(MessageId),
     /// Waits until a message is available and pops it
     ///
     /// ## On success
@@ -93,6 +100,10 @@ impl Debug for Command {
                 .field("msg_id", id)
                 .finish(),
             Command::ConsumeResponses => f.debug_struct("Command::ConsumeResponses").finish(),
+            Command::GetSingleResponse(id) => f
+                .debug_struct("Command::GetSingleResponse")
+                .field("msg_id", id)
+                .finish(),
         }
     }
 }

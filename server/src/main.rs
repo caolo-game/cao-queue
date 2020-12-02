@@ -142,10 +142,11 @@ async fn main() {
     };
 
     let spmc_queue = warp::get()
-        .and(warp::path!("spmc"))
         .and(warp::ws())
+        .and(warp::path("spmc"))
         .and(exchange())
         .map(|ws: warp::ws::Ws, exchange| {
+            info!("upgrading to WS protocol");
             ws.on_upgrade(move |socket| spmc_queue(socket, exchange))
         });
 

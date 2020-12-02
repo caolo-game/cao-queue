@@ -46,7 +46,8 @@ async fn main() {
         "caoq" => {
             async move {
                 for _ in 0..samples {
-                    crate::caoq_test::run("ws://localhost:6942/spmc", messages, 2).await;
+                    crate::caoq_test::run("wss://cao-q.herokuapp.com", messages, 2).await;
+                    // crate::caoq_test::run("ws://localhost:6942", messages, 2).await;
                 }
             }
             .await

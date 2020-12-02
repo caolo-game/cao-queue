@@ -132,6 +132,18 @@ impl Client {
             })
     }
 
+    pub async fn get_response(&mut self, id: MessageId) -> Result<Option<OwnedMessage>, CaoQError> {
+        self.send_cmd(Command::GetSingleResponse(id))
+            .await
+            .map(|res| match res {
+                CommandResponse::Message(m) => Some(m),
+                CommandResponse::Success => None,
+                CommandResponse::MessageId(_) | CommandResponse::Messages(_) => {
+                    unreachable!()
+                }
+            })
+    }
+
     pub async fn close(&mut self) {
         self.socket.close(None).await.unwrap_or(())
     }
